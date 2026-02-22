@@ -1,0 +1,39 @@
+pub mod config;
+pub mod error;
+pub mod ops;
+pub mod parity;
+
+pub use config::{
+    CompressRequest, CreateRequest, DecompressRequest, ExtractRequest, TitleKeysRequest,
+    UndupeRequest, VerifyRequest,
+};
+pub use error::NszError;
+pub use ops::{OperationReport, VerifyReport};
+
+pub fn compress(_: &CompressRequest) -> Result<OperationReport, NszError> {
+    Err(NszError::NotImplemented("compress"))
+}
+
+pub fn decompress(_: &DecompressRequest) -> Result<OperationReport, NszError> {
+    Err(NszError::NotImplemented("decompress"))
+}
+
+pub fn verify(_: &VerifyRequest) -> Result<VerifyReport, NszError> {
+    Err(NszError::NotImplemented("verify"))
+}
+
+pub fn extract(_: &ExtractRequest) -> Result<OperationReport, NszError> {
+    Err(NszError::NotImplemented("extract"))
+}
+
+pub fn create(_: &CreateRequest) -> Result<OperationReport, NszError> {
+    Err(NszError::NotImplemented("create"))
+}
+
+pub fn titlekeys(_: &TitleKeysRequest) -> Result<OperationReport, NszError> {
+    Err(NszError::NotImplemented("titlekeys"))
+}
+
+pub fn undupe(_: &UndupeRequest) -> Result<OperationReport, NszError> {
+    Err(NszError::NotImplemented("undupe"))
+}

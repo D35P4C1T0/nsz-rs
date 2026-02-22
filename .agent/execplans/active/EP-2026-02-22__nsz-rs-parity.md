@@ -19,8 +19,9 @@ After this change, the repository will provide a native safe Rust library that r
 - [x] (2026-02-22T23:10Z) Gathered requirements and approved design sections: architecture, determinism, error model, and test gates.
 - [x] (2026-02-22T23:12Z) Wrote design artifact `docs/plans/2026-02-22-nsz-rs-parity-design.md`.
 - [x] (2026-02-22T23:20Z) Wrote implementation task plan `docs/plans/2026-02-22-nsz-rs-parity-implementation.md`.
-- [ ] Create and verify Rust crate skeleton, public API facade, and typed error/config contracts.
-- [ ] Implement baseline parity runner bound to Python `4.6.1` behavior checks.
+- [x] (2026-02-22T23:34Z) Created Rust crate skeleton with high-level facade API and smoke test (`public_api_symbols_exist`).
+- [x] (2026-02-22T23:38Z) Implemented baseline version reader `parity::python_runner::query_version` and passing test (`python_baseline_reports_461`).
+- [x] (2026-02-22T23:40Z) Implemented deterministic compress defaults and parity mismatch error contract tests.
 - [ ] Implement filesystem policy and key handling semantics cloned from Python logic.
 - [ ] Implement container primitives and NCZ header/block binary compatibility.
 - [ ] Implement operations in parity-first order: decompress/verify, then compress, then extract/create/titlekeys/undupe.
@@ -34,6 +35,8 @@ After this change, the repository will provide a native safe Rust library that r
   Evidence: `git -C /home/matteo/Documents/prog/python/nsz rev-list -n 1 4.6.1` -> `d84f7c813c3fe278104ff8877803f22028e57452`.
 - Observation: Multithreaded zstd behavior can produce differing output characteristics from single-thread mode.
   Evidence: python-zstandard multithread docs and zstd parameter docs captured in continuity receipts.
+- Observation: Initial `cargo test` run failed until crate dependency resolution was allowed with network access.
+  Evidence: Failure on downloading `index.crates.io/config.json`, then success after approved escalated `cargo test`.
 
 ## Decision Log
 
@@ -52,7 +55,7 @@ After this change, the repository will provide a native safe Rust library that r
 
 ## Outcomes & Retrospective
 
-Current status: planning phase complete, implementation not started. Primary outcome so far is a locked design and executable task breakdown. Remaining work is code implementation and verification.
+Current status: implementation started and first execution slice is complete. The library now compiles with a public facade, baseline version probing, deterministic compression defaults, and typed parity mismatch error data. Remaining work is core behavior modules, operation pipelines, and corpus-wide parity validation.
 
 ## Context and Orientation
 
@@ -166,3 +169,4 @@ Core dependencies to introduce:
 ## Plan Revision Notes (bottom-of-file change notes)
 
 - (2026-02-22) Initial plan created from approved brainstorming design and repository continuity constraints.
+- (2026-02-22) Updated progress after completing implementation Tasks 1-4 and recording dependency-resolution discovery.
