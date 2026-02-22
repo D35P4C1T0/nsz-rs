@@ -6,31 +6,31 @@ Add dated entries with provenance tags per AGENTS.md: [USER], [CODE], [TOOL], [A
 ## Snapshot
 
 Goal: 2026-02-22 [USER] Reimplement Python `nsz` in native safe Rust with total feature parity.
-Now: 2026-02-22 [CODE] Implementation started; Tasks 1-4 from the implementation plan are complete and tests pass.
-Next: 2026-02-22 [ASSUMPTION] Proceed to filesystem policy and key-handling modules (Task 5 and Task 6) with TDD.
+Now: 2026-02-22 [CODE] Foundation implementation through Task 8 is complete with passing tests.
+Next: 2026-02-22 [ASSUMPTION] Begin operation-path implementation (Task 9 onward: decompress/verify first).
 Open Questions: 2026-02-22 [UNCONFIRMED] Parity harness mode default (fail-fast vs collect-all mismatch report).
 
 ## Done (recent)
-- 2026-02-22 [CODE] Completed Task 1: crate bootstrap (`Cargo.toml`, `src/lib.rs`, config/error/ops modules) and passing `public_api_symbols_exist` test.
-- 2026-02-22 [CODE] Completed Task 2: added `src/parity/python_runner.rs` with version probing and passing `python_baseline_reports_461` test.
-- 2026-02-22 [CODE] Completed Task 3: implemented Python-matching compress defaults and passing `compress_defaults_match_python_461` test.
-- 2026-02-22 [CODE] Completed Task 4: added typed `NszError::ParityMismatch` contract and passing `parity_mismatch_error_carries_offsets` test.
-- 2026-02-22 [TOOL] Full current test suite passes via `cargo test -q` (4 integration tests).
-- 2026-02-22 [CODE] Updated live ExecPlan progress/retrospective after first implementation slice.
-- 2026-02-22 [TOOL] Confirmed dependency fetch required approved escalated `cargo test` run in this environment.
+- 2026-02-22 [CODE] Completed Task 8: added `ncz::header::BlockHeader` deterministic binary roundtrip (`ncz_block_header_binary_layout_matches_python`).
+- 2026-02-22 [CODE] Completed Task 7: added minimal `container::pfs0` parser/serializer and stable roundtrip test.
+- 2026-02-22 [CODE] Completed Task 6: added `crypto::keys::load_from_str` required-key validation.
+- 2026-02-22 [CODE] Completed Task 5: added `fs_ops` path/policy logic with duplicate rejection test.
+- 2026-02-22 [CODE] Previously completed Tasks 1-4 (crate scaffold, baseline version probe, config defaults, parity mismatch error).
+- 2026-02-22 [TOOL] Full suite currently passes via `cargo fmt --all && cargo test -q` (8 integration tests).
+- 2026-02-22 [CODE] Updated ExecPlan progress and outcomes after completing Task 8.
 
 ## Working set
 - /home/matteo/Documents/prog/rust/nsz-rs/.agent/CONTINUITY.md
 - /home/matteo/Documents/prog/rust/nsz-rs/.agent/execplans/INDEX.md
 - /home/matteo/Documents/prog/rust/nsz-rs/.agent/execplans/active/EP-2026-02-22__nsz-rs-parity.md
 - /home/matteo/Documents/prog/rust/nsz-rs/src/lib.rs
-- /home/matteo/Documents/prog/rust/nsz-rs/src/config.rs
-- /home/matteo/Documents/prog/rust/nsz-rs/src/error.rs
 - /home/matteo/Documents/prog/rust/nsz-rs/src/parity/python_runner.rs
-- /home/matteo/Documents/prog/rust/nsz-rs/tests/smoke_public_api.rs
-- /home/matteo/Documents/prog/rust/nsz-rs/tests/parity_python_version.rs
-- /home/matteo/Documents/prog/rust/nsz-rs/tests/config_defaults.rs
-- /home/matteo/Documents/prog/rust/nsz-rs/tests/error_contract.rs
+- /home/matteo/Documents/prog/rust/nsz-rs/src/container/pfs0.rs
+- /home/matteo/Documents/prog/rust/nsz-rs/src/ncz/header.rs
+- /home/matteo/Documents/prog/rust/nsz-rs/tests/fs_policy.rs
+- /home/matteo/Documents/prog/rust/nsz-rs/tests/keys_loading.rs
+- /home/matteo/Documents/prog/rust/nsz-rs/tests/container_roundtrip.rs
+- /home/matteo/Documents/prog/rust/nsz-rs/tests/ncz_header_block.rs
 - /home/matteo/Documents/switch_games/Bad Cheese [NSP]
 
 ## Decisions
@@ -62,3 +62,5 @@ Open Questions: 2026-02-22 [UNCONFIRMED] Parity harness mode default (fail-fast 
 - 2026-02-22 [TOOL] `cargo test public_api_symbols_exist -q` initially failed without `Cargo.toml`, then passed after crate bootstrap.
 - 2026-02-22 [TOOL] `cargo test python_baseline_reports_461 -q`, `cargo test compress_defaults_match_python_461 -q`, `cargo test parity_mismatch_error_carries_offsets -q` all pass after corresponding implementations.
 - 2026-02-22 [TOOL] `cargo test -q` currently passes all defined tests.
+- 2026-02-22 [TOOL] `cargo test file_policy_rejects_duplicate_without_overwrite -q`, `cargo test key_loader_checks_required_entries -q`, `cargo test pfs0_header_roundtrip_is_stable -q`, `cargo test ncz_block_header_binary_layout_matches_python -q` all pass.
+- 2026-02-22 [TOOL] `cargo fmt --all && cargo test -q` passes after Task 8 implementation.

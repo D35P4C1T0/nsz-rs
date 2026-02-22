@@ -22,8 +22,8 @@ After this change, the repository will provide a native safe Rust library that r
 - [x] (2026-02-22T23:34Z) Created Rust crate skeleton with high-level facade API and smoke test (`public_api_symbols_exist`).
 - [x] (2026-02-22T23:38Z) Implemented baseline version reader `parity::python_runner::query_version` and passing test (`python_baseline_reports_461`).
 - [x] (2026-02-22T23:40Z) Implemented deterministic compress defaults and parity mismatch error contract tests.
-- [ ] Implement filesystem policy and key handling semantics cloned from Python logic.
-- [ ] Implement container primitives and NCZ header/block binary compatibility.
+- [x] (2026-02-22T23:50Z) Implemented filesystem write policy primitives and key-loading required-key checks with passing tests.
+- [x] (2026-02-22T23:56Z) Implemented minimal container and NCZ binary layout primitives with deterministic roundtrip tests.
 - [ ] Implement operations in parity-first order: decompress/verify, then compress, then extract/create/titlekeys/undupe.
 - [ ] Implement corpus-wide parity harness and docs for adding new samples.
 - [ ] Run formatting, lint, tests, and parity gates; fix regressions.
@@ -55,7 +55,7 @@ After this change, the repository will provide a native safe Rust library that r
 
 ## Outcomes & Retrospective
 
-Current status: implementation started and first execution slice is complete. The library now compiles with a public facade, baseline version probing, deterministic compression defaults, and typed parity mismatch error data. Remaining work is core behavior modules, operation pipelines, and corpus-wide parity validation.
+Current status: implementation foundation slice is complete through binary/header primitives. The library now includes API scaffolding, baseline version probing, defaults/error contracts, filesystem policy checks, key parser validation, and deterministic roundtrip tests for PFS0 and NCZ block headers. Remaining work is operation pipelines and corpus-wide parity validation.
 
 ## Context and Orientation
 
@@ -170,3 +170,4 @@ Core dependencies to introduce:
 
 - (2026-02-22) Initial plan created from approved brainstorming design and repository continuity constraints.
 - (2026-02-22) Updated progress after completing implementation Tasks 1-4 and recording dependency-resolution discovery.
+- (2026-02-22) Updated progress after completing Tasks 5-8 (fs policy, key loading, container and NCZ header primitives).

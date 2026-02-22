@@ -6,6 +6,10 @@ pub enum NszError {
     Io(#[from] std::io::Error),
     #[error("could not parse python baseline version from {path}")]
     BaselineVersionParse { path: String },
+    #[error("missing required key: {key}")]
+    MissingRequiredKey { key: String },
+    #[error("container format error: {message}")]
+    ContainerFormat { message: String },
     #[error(
         "parity mismatch in {operation}: expected sha256 {expected_sha256}, actual sha256 {actual_sha256}, first diff offset {first_diff_offset}"
     )]
