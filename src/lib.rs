@@ -14,8 +14,8 @@ pub use config::{
 pub use error::NszError;
 pub use ops::{OperationReport, VerifyReport};
 
-pub fn compress(_: &CompressRequest) -> Result<OperationReport, NszError> {
-    Err(NszError::NotImplemented("compress"))
+pub fn compress(request: &CompressRequest) -> Result<OperationReport, NszError> {
+    ops::compress::run(request)
 }
 
 pub fn decompress(request: &DecompressRequest) -> Result<OperationReport, NszError> {

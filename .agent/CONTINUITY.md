@@ -6,38 +6,32 @@ Add dated entries with provenance tags per AGENTS.md: [USER], [CODE], [TOOL], [A
 ## Snapshot
 
 Goal: 2026-02-22 [USER] Reimplement Python `nsz` in native safe Rust with total feature parity.
-Now: 2026-02-23 [CODE] Native verify covers `.nca`/`.ncz`/`.nsp`/`.nsz`/`.xci`/`.xcz`; native decompress now covers `.ncz`/`.nsz`/`.xcz` (to `.xci`) without Python fallback.
-Next: 2026-02-23 [ASSUMPTION] Continue Task 9 by reducing fallback for XCI/XCZ-related paths and filling remaining operation parity gaps.
+Now: 2026-02-23 [CODE] Native verify covers `.nca`/`.ncz`/`.nsp`/`.nsz`/`.xci`/`.xcz`; native decompress covers `.ncz`/`.nsz`/`.xcz`; `compress` is now wired via Python CLI parity dispatch with full request flag mapping.
+Next: 2026-02-23 [ASSUMPTION] Replace `compress` Python dispatch with native solid/block compression parity path, then implement `extract`/`create`/`titlekeys`/`undupe`.
 Open Questions: 2026-02-23 [UNCONFIRMED] Need finalized default policy for heavy parity mode selection (`full` vs `fast`) and whether native `.xci` re-encode header fields should be parity-cloned or normalized.
 
 ## Done (recent)
-- 2026-02-23 [CODE] Added `encode_hfs0` output builder in `container::hfs0` to support rewritten partition trees.
-- 2026-02-23 [CODE] Added `encode_xci_like` output builder in `container::xci` and relaxed strict `hfs0_header_size` validation to match Python tolerance.
 - 2026-02-23 [CODE] Added native `.xcz -> .xci` decompression path in `ops::decompress` with recursive HFS0 partition rewrite and `.ncz -> .nca` conversion.
-- 2026-02-23 [CODE] Added synthetic no-Python decompression integration test `decompress_uses_native_path_for_xcz_inputs`.
-- 2026-02-23 [TOOL] New `.xcz` native decompression test passes with invalid Python repo root (proves fallback removal for this path).
-- 2026-02-23 [TOOL] Validation gates pass after `.xcz` decompression updates: `cargo fmt --all && cargo test -q && cargo clippy --all-targets --all-features -- -D warnings`.
-- 2026-02-23 [TOOL] Heavy parity was not rerun for this slice because corpus currently contains no `.xcz` fixtures (UNCONFIRMED fixture addition date).
+- 2026-02-23 [CODE] Added `ops::compress` and wired `nsz_rs::compress` to execute NSZ CLI parity flow with mapped request flags.
+- 2026-02-23 [CODE] Expanded `CompressRequest` with input/output and Python-compatible operation options (`-L/-B/-S/-V/-Q/-K/-F/-p/-P/-w/-r/--rm-source` plus `-l/-s/-m/-t`).
+- 2026-02-23 [CODE] Added integration test `compress_invokes_cli_and_reports_outputs` using a local fake `nsz.py`.
+- 2026-02-23 [TOOL] Red phase captured for compress slice: missing `CompressRequest` fields caused compile errors before implementation.
+- 2026-02-23 [TOOL] Green phase passed for `compress_invokes_cli_and_reports_outputs`.
+- 2026-02-23 [TOOL] Full validation gates pass after compress slice: `cargo fmt --all && cargo test -q && cargo clippy --all-targets --all-features -- -D warnings`.
 
 ## Working set
 - /home/matteo/Documents/prog/rust/nsz-rs/.agent/CONTINUITY.md
-- /home/matteo/Documents/prog/rust/nsz-rs/.agent/execplans/INDEX.md
 - /home/matteo/Documents/prog/rust/nsz-rs/.agent/execplans/active/EP-2026-02-22__nsz-rs-parity.md
-- /home/matteo/Documents/prog/rust/nsz-rs/src/container/hfs0.rs
-- /home/matteo/Documents/prog/rust/nsz-rs/src/container/xci.rs
-- /home/matteo/Documents/prog/rust/nsz-rs/src/container/nsp.rs
+- /home/matteo/Documents/prog/rust/nsz-rs/src/config.rs
+- /home/matteo/Documents/prog/rust/nsz-rs/src/lib.rs
+- /home/matteo/Documents/prog/rust/nsz-rs/src/ops/compress.rs
 - /home/matteo/Documents/prog/rust/nsz-rs/src/ops/decompress.rs
 - /home/matteo/Documents/prog/rust/nsz-rs/src/ops/verify.rs
-- /home/matteo/Documents/prog/rust/nsz-rs/src/ncz/decompress.rs
+- /home/matteo/Documents/prog/rust/nsz-rs/src/container/xci.rs
 - /home/matteo/Documents/prog/rust/nsz-rs/tests/decompress_verify_parity.rs
-- /home/matteo/Documents/prog/rust/nsz-rs/tests/ncz_decompress_meta.rs
-- /home/matteo/Documents/prog/rust/nsz-rs/tests/decompress_native_nsz_op.rs
-- /home/matteo/Documents/prog/rust/nsz-rs/tests/decompress_native_xcz_op.rs
-- /home/matteo/Documents/prog/rust/nsz-rs/tests/verify_native_nca_op.rs
-- /home/matteo/Documents/prog/rust/nsz-rs/tests/verify_native_nsp_nsz_op.rs
-- /home/matteo/Documents/prog/rust/nsz-rs/tests/verify_native_xci_xcz_op.rs
-- /home/matteo/Documents/prog/rust/nsz-rs/tests/verify_native_ncz_op.rs
+- /home/matteo/Documents/prog/rust/nsz-rs/tests/compress_cli_path.rs
 - /home/matteo/Documents/switch_games/Bad Cheese [NSP]
+- /home/matteo/Documents/switch_games/xci_test/HEART of CROWN.xci
 
 ## Decisions
 - D001 ACTIVE: 2026-02-22 [USER] Target outcome is total feature parity with Python `nsz`; implementation language constraints are native safe Rust.
@@ -85,3 +79,6 @@ Open Questions: 2026-02-23 [UNCONFIRMED] Need finalized default policy for heavy
 - 2026-02-23 [CODE] Added repository `.gitignore` to ignore local build artifacts, local venvs, and key files (`target/`, `.venv*`, `keys.txt`, `prod.keys`).
 - 2026-02-23 [TOOL] Added and passed native XCZ decompression coverage: `cargo test decompress_uses_native_path_for_xcz_inputs -- --nocapture`.
 - 2026-02-23 [TOOL] Full validation remains green after native XCZ decompression update: `cargo fmt --all && cargo test -q && cargo clippy --all-targets --all-features -- -D warnings`.
+- 2026-02-23 [USER] Provided real XCI fixture path for parity reference: `/home/matteo/Documents/switch_games/xci_test/HEART of CROWN.xci`.
+- 2026-02-23 [TOOL] Added red/green coverage for compress op wiring: `cargo test compress_invokes_cli_and_reports_outputs -- --nocapture` fails before implementation, passes after.
+- 2026-02-23 [TOOL] Full validation remains green after compress wiring update: `cargo fmt --all && cargo test -q && cargo clippy --all-targets --all-features -- -D warnings`.
