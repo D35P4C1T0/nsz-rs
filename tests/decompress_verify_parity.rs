@@ -14,13 +14,16 @@ fn decompress_verify_matches_python_for_fixture() {
     if local_python.exists() {
         std::env::set_var("NSZ_PYTHON_BIN", &local_python);
     }
-    if !keys_available(&python_repo) {
+    let temp_root = std::env::temp_dir().join(format!("nsz-rs-task9-{}", std::process::id()));
+    let baseline_home = temp_root.join("home");
+    if !prepare_home_with_keys(&python_repo, &baseline_home) {
         return;
     }
+    std::env::set_var("HOME", &baseline_home);
+
     let corpus_root = PathBuf::from("/home/matteo/Documents/switch_games/Bad Cheese [NSP]");
     let source_nsz = corpus_root.join("Bad Cheese [0100BAE021208000][v0].nsz");
 
-    let temp_root = std::env::temp_dir().join(format!("nsz-rs-task9-{}", std::process::id()));
     let baseline_out = temp_root.join("baseline");
     let rust_out = temp_root.join("rust");
     fs::create_dir_all(&baseline_out).unwrap();
@@ -63,16 +66,31 @@ fn decompress_verify_matches_python_for_fixture() {
     let _ = fs::remove_dir_all(temp_root);
 }
 
-fn keys_available(python_repo: &Path) -> bool {
-    let home = std::env::var("HOME").ok().map(PathBuf::from);
-    let mut candidates = vec![python_repo.join("prod.keys"), python_repo.join("keys.txt")];
+fn prepare_home_with_keys(python_repo: &Path, target_home: &Path) -> bool {
+    let mut candidates = vec![
+        python_repo.join("prod.keys"),
+        python_repo.join("keys.txt"),
+        PathBuf::from("prod.keys"),
+        PathBuf::from("keys.txt"),
+    ];
 
-    if let Some(home_dir) = home {
+    if let Ok(home) = std::env::var("HOME") {
+        let home_dir = PathBuf::from(home);
         candidates.push(home_dir.join(".switch").join("prod.keys"));
         candidates.push(home_dir.join(".switch").join("keys.txt"));
     }
 
-    candidates.iter().any(|p| p.exists())
+    let Some(source_key) = candidates.into_iter().find(|p| p.exists()) else {
+        return false;
+    };
+
+    let switch_dir = target_home.join(".switch");
+    if std::fs::create_dir_all(&switch_dir).is_err() {
+        return false;
+    }
+
+    let target = switch_dir.join("keys.txt");
+    std::fs::copy(source_key, target).is_ok()
 }
 
 fn files_equal(a: &Path, b: &Path) -> bool {

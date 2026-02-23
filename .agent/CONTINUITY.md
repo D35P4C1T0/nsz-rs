@@ -6,18 +6,18 @@ Add dated entries with provenance tags per AGENTS.md: [USER], [CODE], [TOOL], [A
 ## Snapshot
 
 Goal: 2026-02-22 [USER] Reimplement Python `nsz` in native safe Rust with total feature parity.
-Now: 2026-02-22 [CODE] Task 9 operation wiring is in place with fail-fast parity test scaffold and local Python baseline venv support.
+Now: 2026-02-22 [CODE] Heavy Task 9 parity test runs successfully and native NCZ decompression metadata parsing has started.
 Next: 2026-02-22 [ASSUMPTION] Continue Task 9 by implementing native Rust decompress/verify internals and removing baseline adapter dependency.
-Open Questions: 2026-02-22 [UNCONFIRMED] Baseline parity execution needs user key files (`prod.keys`/`keys.txt`) to exist in expected locations.
+Open Questions: 2026-02-22 [UNCONFIRMED] No unresolved environment blockers; next unknown is native-path implementation complexity versus baseline adapter replacement rate.
 
 ## Done (recent)
-- 2026-02-22 [USER] Chose parity harness default mode `fail-fast`.
-- 2026-02-22 [CODE] Started Task 9: added `src/ops/decompress.rs`, `src/ops/verify.rs`, and wired `lib.rs` operations.
-- 2026-02-22 [CODE] Added real-corpus parity test scaffold `tests/decompress_verify_parity.rs` with `NSZ_RUN_HEAVY_PARITY=1` gating and key-file precheck.
-- 2026-02-22 [TOOL] Created project-local baseline venv `.venv-nsz-baseline` and installed Python `nsz` requirements (`pycryptodome`, `zstandard`, `enlighten`).
-- 2026-02-22 [TOOL] Heavy parity run now reaches baseline key-loading stage and fails due missing key files (`Could not load keys file`).
+- 2026-02-22 [CODE] Added native NCZ metadata parser scaffold `src/ncz/decompress.rs` and passing size test `ncz_decompressed_size_matches_header_sections`.
+- 2026-02-22 [USER] Provided `keys.txt` in repo root; heavy parity baseline now has usable keys path via test home provisioning.
+- 2026-02-22 [TOOL] Heavy parity command passes: `NSZ_RUN_HEAVY_PARITY=1 cargo test decompress_verify_matches_python_for_fixture -- --nocapture` (with escalated permissions for multiprocessing).
+- 2026-02-22 [CODE] Updated Task 9 test to provision temporary `HOME/.switch/keys.txt` from discovered key locations (python repo root, workspace root, or existing home switch dir).
+- 2026-02-22 [CODE] Task 9 wiring in place (`src/ops/decompress.rs`, `src/ops/verify.rs`, fail-fast parity scaffold test).
+- 2026-02-22 [TOOL] Created project-local baseline venv `.venv-nsz-baseline` and installed Python `nsz` requirements.
 - 2026-02-22 [TOOL] Default suite remains green (`cargo fmt --all && cargo test -q`).
-- 2026-02-22 [CODE] Foundation Tasks 1-8 completed and committed; ExecPlan updated through Task 9 bootstrap status.
 
 ## Working set
 - /home/matteo/Documents/prog/rust/nsz-rs/.agent/CONTINUITY.md
@@ -28,9 +28,10 @@ Open Questions: 2026-02-22 [UNCONFIRMED] Baseline parity execution needs user ke
 - /home/matteo/Documents/prog/rust/nsz-rs/src/ops/decompress.rs
 - /home/matteo/Documents/prog/rust/nsz-rs/src/ops/verify.rs
 - /home/matteo/Documents/prog/rust/nsz-rs/src/container/pfs0.rs
+- /home/matteo/Documents/prog/rust/nsz-rs/src/ncz/decompress.rs
 - /home/matteo/Documents/prog/rust/nsz-rs/src/ncz/header.rs
 - /home/matteo/Documents/prog/rust/nsz-rs/tests/decompress_verify_parity.rs
-- /home/matteo/Documents/prog/rust/nsz-rs/tests/ncz_header_block.rs
+- /home/matteo/Documents/prog/rust/nsz-rs/tests/ncz_decompress_meta.rs
 - /home/matteo/Documents/switch_games/Bad Cheese [NSP]
 
 ## Decisions
@@ -56,3 +57,6 @@ Open Questions: 2026-02-22 [UNCONFIRMED] Baseline parity execution needs user ke
 - 2026-02-22 [TOOL] Heavy parity run in sandbox failed on multiprocessing manager permissions (`PermissionError`/`EOFError`); escalated rerun bypassed sandbox restriction.
 - 2026-02-22 [TOOL] Heavy parity run outside sandbox currently fails at baseline key loading (`Exception: Could not load keys file`).
 - 2026-02-22 [TOOL] `ls -la ~/.switch` and key path checks found no available `prod.keys`/`keys.txt` for baseline execution.
+- 2026-02-22 [USER] Added `keys.txt` in workspace root (`/home/matteo/Documents/prog/rust/nsz-rs/keys.txt`).
+- 2026-02-22 [TOOL] Heavy parity rerun passes after key-home provisioning: `NSZ_RUN_HEAVY_PARITY=1 cargo test decompress_verify_matches_python_for_fixture -- --nocapture`.
+- 2026-02-22 [TOOL] Native NCZ metadata test passes: `cargo test ncz_decompressed_size_matches_header_sections -q`.

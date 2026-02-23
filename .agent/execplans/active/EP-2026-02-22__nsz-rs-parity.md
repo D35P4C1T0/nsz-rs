@@ -25,6 +25,8 @@ After this change, the repository will provide a native safe Rust library that r
 - [x] (2026-02-22T23:50Z) Implemented filesystem write policy primitives and key-loading required-key checks with passing tests.
 - [x] (2026-02-22T23:56Z) Implemented minimal container and NCZ binary layout primitives with deterministic roundtrip tests.
 - [ ] (2026-02-22T23:59Z) Started Task 9: added `ops::decompress`/`ops::verify` path wiring and real-corpus parity test scaffold (`decompress_verify_matches_python_for_fixture`), pending Python baseline dependency readiness for full run.
+- [x] (2026-02-23T00:12Z) Unblocked heavy Task 9 parity execution by wiring local baseline venv + key provisioning and passing real-corpus fail-fast parity test.
+- [ ] (2026-02-23T00:18Z) Began native Task 9 replacement work by adding NCZ section metadata parsing and decompressed-size computation (`ncz::decompress`), with passing unit test.
 - [ ] Implement operations in parity-first order: decompress/verify, then compress, then extract/create/titlekeys/undupe.
 - [ ] Implement corpus-wide parity harness and docs for adding new samples.
 - [ ] Run formatting, lint, tests, and parity gates; fix regressions.
@@ -42,6 +44,8 @@ After this change, the repository will provide a native safe Rust library that r
   Evidence: `NSZ_RUN_HEAVY_PARITY=1 cargo test decompress_verify_matches_python_for_fixture -- --nocapture` failed with `ModuleNotFoundError: No module named 'Crypto'`.
 - Observation: After installing Python deps locally, heavy parity execution now fails due missing key files required by baseline NSZ tooling.
   Evidence: Escalated heavy run fails with `Exception: Could not load keys file.` and no `prod.keys`/`keys.txt` found in expected paths.
+- Observation: User-provided workspace-root `keys.txt` works for heavy parity when test provisions temporary `HOME/.switch/keys.txt`.
+  Evidence: `NSZ_RUN_HEAVY_PARITY=1 cargo test decompress_verify_matches_python_for_fixture -- --nocapture` passed after key-home provisioning update.
 
 ## Decision Log
 
@@ -180,3 +184,5 @@ Core dependencies to introduce:
 - (2026-02-22) Updated progress after completing implementation Tasks 1-4 and recording dependency-resolution discovery.
 - (2026-02-22) Updated progress after completing Tasks 5-8 (fs policy, key loading, container and NCZ header primitives).
 - (2026-02-22) Updated progress after starting Task 9 and recording baseline blockers (dependency install then key-file absence).
+- (2026-02-23) Updated progress after resolving Task 9 heavy parity runtime blockers (local venv + key provisioning) and passing heavy fail-fast test.
+- (2026-02-23) Updated progress after starting native NCZ decompression metadata implementation for Task 9 replacement path.
