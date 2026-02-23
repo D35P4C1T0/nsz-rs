@@ -27,6 +27,7 @@ After this change, the repository will provide a native safe Rust library that r
 - [ ] (2026-02-22T23:59Z) Started Task 9: added `ops::decompress`/`ops::verify` path wiring and real-corpus parity test scaffold (`decompress_verify_matches_python_for_fixture`), pending Python baseline dependency readiness for full run.
 - [x] (2026-02-23T00:12Z) Unblocked heavy Task 9 parity execution by wiring local baseline venv + key provisioning and passing real-corpus fail-fast parity test.
 - [ ] (2026-02-23T00:18Z) Began native Task 9 replacement work by adding NCZ section parsing, decompressed-size computation, and a no-crypto zstd decompression path (`ncz::decompress`) with passing unit tests.
+- [ ] (2026-02-23T00:26Z) Added native `.ncz` operation dispatch in `ops::decompress` with dedicated integration test proving no Python dependency for `.ncz` inputs.
 - [ ] Implement operations in parity-first order: decompress/verify, then compress, then extract/create/titlekeys/undupe.
 - [ ] Implement corpus-wide parity harness and docs for adding new samples.
 - [ ] Run formatting, lint, tests, and parity gates; fix regressions.
@@ -189,3 +190,4 @@ Core dependencies to introduce:
 - (2026-02-23) Updated progress after resolving Task 9 heavy parity runtime blockers (local venv + key provisioning) and passing heavy fail-fast test.
 - (2026-02-23) Updated progress after starting native NCZ decompression metadata implementation for Task 9 replacement path.
 - (2026-02-23) Expanded native NCZ replacement path to include no-crypto zstd stream decompression with explicit unsupported-feature guards.
+- (2026-02-23) Extended Task 9 native replacement by routing `.ncz` operation calls through Rust decompression path with new integration coverage.

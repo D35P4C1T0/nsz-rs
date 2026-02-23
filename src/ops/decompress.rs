@@ -7,7 +7,6 @@ use crate::ops::OperationReport;
 use crate::parity::python_runner::{resolve_python_repo_root, run_nsz_cli};
 
 pub fn run(request: &DecompressRequest) -> Result<OperationReport, NszError> {
-    let repo_root = resolve_python_repo_root(request.python_repo_root.as_deref());
     let out_dir = request
         .output_dir
         .clone()
@@ -15,9 +14,28 @@ pub fn run(request: &DecompressRequest) -> Result<OperationReport, NszError> {
 
     fs::create_dir_all(&out_dir)?;
 
+    let repo_root = resolve_python_repo_root(request.python_repo_root.as_deref());
     let mut processed_files = Vec::new();
 
     for file in &request.files {
+        if file
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .map(|ext| ext.eq_ignore_ascii_case("ncz"))
+            .unwrap_or(false)
+        {
+            let input = fs::read(file)?;
+            let output = crate::ncz::decompress::decompress_ncz_to_vec(&input)?;
+            let out_file = expected_decompressed_output(file, &out_dir).ok_or_else(|| {
+                NszError::ContainerFormat {
+                    message: format!("could not resolve output path for {}", file.display()),
+                }
+            })?;
+            fs::write(&out_file, output)?;
+            processed_files.push(out_file);
+            continue;
+        }
+
         let mut args = vec![
             "-D".to_string(),
             "-o".to_string(),

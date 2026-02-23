@@ -6,32 +6,30 @@ Add dated entries with provenance tags per AGENTS.md: [USER], [CODE], [TOOL], [A
 ## Snapshot
 
 Goal: 2026-02-22 [USER] Reimplement Python `nsz` in native safe Rust with total feature parity.
-Now: 2026-02-22 [CODE] Heavy Task 9 parity test runs successfully and initial native NCZ zstd decompression path is implemented (no-crypto sections).
+Now: 2026-02-22 [CODE] Native `.ncz` operation path is live in `ops::decompress` and tested without Python dependency.
 Next: 2026-02-22 [ASSUMPTION] Continue Task 9 by implementing native Rust decompress/verify internals and removing baseline adapter dependency.
 Open Questions: 2026-02-22 [UNCONFIRMED] No unresolved environment blockers; next unknown is native-path implementation complexity versus baseline adapter replacement rate.
 
 ## Done (recent)
-- 2026-02-22 [CODE] Added native NCZ decompression groundwork: section parser + decompressed-size + no-crypto zstd roundtrip (`ncz_native_decompress_roundtrip_no_crypto`).
-- 2026-02-22 [USER] Provided `keys.txt` in repo root; heavy parity baseline now has usable keys path via test home provisioning.
-- 2026-02-22 [TOOL] Heavy parity command passes: `NSZ_RUN_HEAVY_PARITY=1 cargo test decompress_verify_matches_python_for_fixture -- --nocapture` (with escalated permissions for multiprocessing).
-- 2026-02-22 [CODE] Updated Task 9 test to provision temporary `HOME/.switch/keys.txt` from discovered key locations (python repo root, workspace root, or existing home switch dir).
-- 2026-02-22 [CODE] Task 9 wiring in place (`src/ops/decompress.rs`, `src/ops/verify.rs`, fail-fast parity scaffold test).
-- 2026-02-22 [TOOL] Created project-local baseline venv `.venv-nsz-baseline` and installed Python `nsz` requirements.
+- 2026-02-22 [CODE] Added native `.ncz` branch to `ops::decompress` using `ncz::decompress::decompress_ncz_to_vec` before Python fallback.
+- 2026-02-22 [CODE] Added integration test `decompress_uses_native_path_for_ncz_inputs` proving `.ncz` decode works with invalid Python repo path.
+- 2026-02-22 [TOOL] New native-op test passes: `cargo test decompress_uses_native_path_for_ncz_inputs -q`.
+- 2026-02-22 [CODE] Native NCZ groundwork remains in place: parser + decompressed-size + no-crypto zstd roundtrip.
+- 2026-02-22 [TOOL] Heavy parity command still passes with keys provisioning: `NSZ_RUN_HEAVY_PARITY=1 cargo test decompress_verify_matches_python_for_fixture -- --nocapture`.
+- 2026-02-22 [TOOL] Local baseline venv remains configured (`.venv-nsz-baseline`) and requirements installed.
 - 2026-02-22 [TOOL] Default suite remains green (`cargo fmt --all && cargo test -q`).
 
 ## Working set
 - /home/matteo/Documents/prog/rust/nsz-rs/.agent/CONTINUITY.md
 - /home/matteo/Documents/prog/rust/nsz-rs/.agent/execplans/INDEX.md
 - /home/matteo/Documents/prog/rust/nsz-rs/.agent/execplans/active/EP-2026-02-22__nsz-rs-parity.md
-- /home/matteo/Documents/prog/rust/nsz-rs/src/lib.rs
-- /home/matteo/Documents/prog/rust/nsz-rs/src/parity/python_runner.rs
 - /home/matteo/Documents/prog/rust/nsz-rs/src/ops/decompress.rs
 - /home/matteo/Documents/prog/rust/nsz-rs/src/ops/verify.rs
-- /home/matteo/Documents/prog/rust/nsz-rs/src/container/pfs0.rs
 - /home/matteo/Documents/prog/rust/nsz-rs/src/ncz/decompress.rs
 - /home/matteo/Documents/prog/rust/nsz-rs/src/ncz/header.rs
 - /home/matteo/Documents/prog/rust/nsz-rs/tests/decompress_verify_parity.rs
 - /home/matteo/Documents/prog/rust/nsz-rs/tests/ncz_decompress_meta.rs
+- /home/matteo/Documents/prog/rust/nsz-rs/tests/decompress_native_ncz_op.rs
 - /home/matteo/Documents/switch_games/Bad Cheese [NSP]
 
 ## Decisions
@@ -61,3 +59,4 @@ Open Questions: 2026-02-22 [UNCONFIRMED] No unresolved environment blockers; nex
 - 2026-02-22 [TOOL] Heavy parity rerun passes after key-home provisioning: `NSZ_RUN_HEAVY_PARITY=1 cargo test decompress_verify_matches_python_for_fixture -- --nocapture`.
 - 2026-02-22 [TOOL] Native NCZ metadata test passes: `cargo test ncz_decompressed_size_matches_header_sections -q`.
 - 2026-02-22 [TOOL] Native no-crypto NCZ roundtrip test passes: `cargo test ncz_native_decompress_roundtrip_no_crypto -q`.
+- 2026-02-22 [TOOL] Native `.ncz` op-path test passes: `cargo test decompress_uses_native_path_for_ncz_inputs -q`.
