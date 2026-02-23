@@ -6,18 +6,18 @@ Add dated entries with provenance tags per AGENTS.md: [USER], [CODE], [TOOL], [A
 ## Snapshot
 
 Goal: 2026-02-22 [USER] Reimplement Python `nsz` in native safe Rust with total feature parity.
-Now: 2026-02-22 [CODE] Task 9 started with `decompress`/`verify` operation wiring and parity test scaffold.
-Next: 2026-02-22 [ASSUMPTION] Continue Task 9 by replacing baseline-adapter behavior with native Rust logic and unblocking heavy corpus parity execution.
-Open Questions: 2026-02-22 [UNCONFIRMED] Python baseline environment in this machine lacks `pycryptodome` (`Crypto` module), blocking heavy parity runs.
+Now: 2026-02-22 [CODE] Task 9 operation wiring is in place with fail-fast parity test scaffold and local Python baseline venv support.
+Next: 2026-02-22 [ASSUMPTION] Continue Task 9 by implementing native Rust decompress/verify internals and removing baseline adapter dependency.
+Open Questions: 2026-02-22 [UNCONFIRMED] Baseline parity execution needs user key files (`prod.keys`/`keys.txt`) to exist in expected locations.
 
 ## Done (recent)
 - 2026-02-22 [USER] Chose parity harness default mode `fail-fast`.
 - 2026-02-22 [CODE] Started Task 9: added `src/ops/decompress.rs`, `src/ops/verify.rs`, and wired `lib.rs` operations.
-- 2026-02-22 [CODE] Added real-corpus parity test scaffold `tests/decompress_verify_parity.rs` (runs when `NSZ_RUN_HEAVY_PARITY=1`).
-- 2026-02-22 [TOOL] Heavy parity run reproduced dependency blocker (`ModuleNotFoundError: No module named 'Crypto'`) from Python baseline.
-- 2026-02-22 [TOOL] Current default suite still passes via `cargo fmt --all && cargo test -q`.
-- 2026-02-22 [CODE] Completed foundation Tasks 1-8 (scaffold, defaults/errors, fs/crypto, container/ncz primitives) and committed checkpoints.
-- 2026-02-22 [CODE] Updated ExecPlan progress/discoveries with Task 9 status and blocker details.
+- 2026-02-22 [CODE] Added real-corpus parity test scaffold `tests/decompress_verify_parity.rs` with `NSZ_RUN_HEAVY_PARITY=1` gating and key-file precheck.
+- 2026-02-22 [TOOL] Created project-local baseline venv `.venv-nsz-baseline` and installed Python `nsz` requirements (`pycryptodome`, `zstandard`, `enlighten`).
+- 2026-02-22 [TOOL] Heavy parity run now reaches baseline key-loading stage and fails due missing key files (`Could not load keys file`).
+- 2026-02-22 [TOOL] Default suite remains green (`cargo fmt --all && cargo test -q`).
+- 2026-02-22 [CODE] Foundation Tasks 1-8 completed and committed; ExecPlan updated through Task 9 bootstrap status.
 
 ## Working set
 - /home/matteo/Documents/prog/rust/nsz-rs/.agent/CONTINUITY.md
@@ -49,21 +49,10 @@ Open Questions: 2026-02-22 [UNCONFIRMED] Python baseline environment in this mac
 - D013 ACTIVE: 2026-02-22 [USER] Parity harness default mode is fail-fast.
 
 ## Receipts
-- 2026-02-22 [TOOL] `ls -la .agent` in `nsz-rs`: continuity/plans/index present.
-- 2026-02-22 [TOOL] `rg --files /home/matteo/Documents/prog/python/nsz` used to inventory source tree and assets.
-- 2026-02-22 [TOOL] `find ... -name '*.py' | xargs wc -l` used to quantify migration size.
-- 2026-02-22 [TOOL] `sed` reads of README and core modules captured feature/format behavior and flags.
-- 2026-02-22 [TOOL] `git -C /home/matteo/Documents/prog/python/nsz log --oneline -n 12` captured recent upstream context.
-- 2026-02-22 [TOOL] `git -C /home/matteo/Documents/prog/python/nsz rev-list -n 1 4.6.1` resolved canonical baseline commit `d84f7c813c3fe278104ff8877803f22028e57452`.
-- 2026-02-22 [TOOL] Web docs checked: `python-zstandard` compressor parameters and multithread behavior (`https://python-zstandard.readthedocs.io/en/latest/compressor.html`, `https://python-zstandard.readthedocs.io/en/0.25.0/multithreaded.html`).
-- 2026-02-22 [TOOL] Web docs checked: zstd frame parameter defaults (`contentSize/checksum/dictID`) and threading parameter controls (`https://facebook.github.io/zstd/zstd_manual.html`).
-- 2026-02-22 [USER] Corpus root designated for parity harness: `/home/matteo/Documents/switch_games/Bad Cheese [NSP]`; future sample expansion expected.
-- 2026-02-22 [CODE] Wrote design and implementation plan docs under `docs/plans/` and canonical ExecPlan under `.agent/execplans/active/`.
-- 2026-02-22 [TOOL] Created commit `41f2631` for the design document artifact.
-- 2026-02-22 [TOOL] `cargo test public_api_symbols_exist -q` initially failed without `Cargo.toml`, then passed after crate bootstrap.
-- 2026-02-22 [TOOL] `cargo test python_baseline_reports_461 -q`, `cargo test compress_defaults_match_python_461 -q`, `cargo test parity_mismatch_error_carries_offsets -q` all pass after corresponding implementations.
-- 2026-02-22 [TOOL] `cargo test -q` currently passes all defined tests.
-- 2026-02-22 [TOOL] `cargo test file_policy_rejects_duplicate_without_overwrite -q`, `cargo test key_loader_checks_required_entries -q`, `cargo test pfs0_header_roundtrip_is_stable -q`, `cargo test ncz_block_header_binary_layout_matches_python -q` all pass.
-- 2026-02-22 [TOOL] `cargo fmt --all && cargo test -q` passes after Task 8 implementation.
-- 2026-02-22 [TOOL] `NSZ_RUN_HEAVY_PARITY=1 cargo test decompress_verify_matches_python_for_fixture -- --nocapture` fails in baseline Python with missing `Crypto` module (`pycryptodome` not installed).
-- 2026-02-22 [TOOL] `cargo test decompress_verify_matches_python_for_fixture -q` passes in default mode (heavy parity env flag not set).
+- 2026-02-22 [TOOL] Baseline inventory and reference pin completed: Python repo surveyed; baseline fixed to `4.6.1` commit `d84f7c813c3fe278104ff8877803f22028e57452`; corpus root set to `/home/matteo/Documents/switch_games/Bad Cheese [NSP]`.
+- 2026-02-22 [TOOL] Foundations validated with passing targeted tests (`public_api_symbols_exist`, `python_baseline_reports_461`, defaults/error, fs/keys, PFS0/NCZ binary layout).
+- 2026-02-22 [TOOL] `cargo fmt --all && cargo test -q` passes after Task 9 scaffolding changes.
+- 2026-02-22 [TOOL] Local baseline venv created and requirements installed: `.venv-nsz-baseline/bin/pip install -r /home/matteo/Documents/prog/python/nsz/requirements.txt`.
+- 2026-02-22 [TOOL] Heavy parity run in sandbox failed on multiprocessing manager permissions (`PermissionError`/`EOFError`); escalated rerun bypassed sandbox restriction.
+- 2026-02-22 [TOOL] Heavy parity run outside sandbox currently fails at baseline key loading (`Exception: Could not load keys file`).
+- 2026-02-22 [TOOL] `ls -la ~/.switch` and key path checks found no available `prod.keys`/`keys.txt` for baseline execution.

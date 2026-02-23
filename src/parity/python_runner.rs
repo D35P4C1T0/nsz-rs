@@ -43,7 +43,8 @@ pub fn resolve_python_repo_root(explicit: Option<&Path>) -> PathBuf {
 }
 
 pub fn run_nsz_cli(repo_root: &Path, args: &[String]) -> Result<(), NszError> {
-    let output = Command::new("python3")
+    let python_bin = std::env::var("NSZ_PYTHON_BIN").unwrap_or_else(|_| "python3".to_string());
+    let output = Command::new(&python_bin)
         .current_dir(repo_root)
         .arg("nsz.py")
         .args(args)
@@ -55,7 +56,7 @@ pub fn run_nsz_cli(repo_root: &Path, args: &[String]) -> Result<(), NszError> {
 
     let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
     let status = output.status.code().unwrap_or(-1);
-    let command = format!("python3 nsz.py {}", args.join(" "));
+    let command = format!("{python_bin} nsz.py {}", args.join(" "));
     Err(NszError::ExternalCommand {
         command,
         status,

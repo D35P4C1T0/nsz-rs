@@ -9,6 +9,14 @@ fn decompress_verify_matches_python_for_fixture() {
     }
 
     let python_repo = PathBuf::from("/home/matteo/Documents/prog/python/nsz");
+    let local_python =
+        PathBuf::from("/home/matteo/Documents/prog/rust/nsz-rs/.venv-nsz-baseline/bin/python3");
+    if local_python.exists() {
+        std::env::set_var("NSZ_PYTHON_BIN", &local_python);
+    }
+    if !keys_available(&python_repo) {
+        return;
+    }
     let corpus_root = PathBuf::from("/home/matteo/Documents/switch_games/Bad Cheese [NSP]");
     let source_nsz = corpus_root.join("Bad Cheese [0100BAE021208000][v0].nsz");
 
@@ -53,6 +61,18 @@ fn decompress_verify_matches_python_for_fixture() {
     assert_eq!(verify.verified_files, vec![rust_nsp]);
 
     let _ = fs::remove_dir_all(temp_root);
+}
+
+fn keys_available(python_repo: &Path) -> bool {
+    let home = std::env::var("HOME").ok().map(PathBuf::from);
+    let mut candidates = vec![python_repo.join("prod.keys"), python_repo.join("keys.txt")];
+
+    if let Some(home_dir) = home {
+        candidates.push(home_dir.join(".switch").join("prod.keys"));
+        candidates.push(home_dir.join(".switch").join("keys.txt"));
+    }
+
+    candidates.iter().any(|p| p.exists())
 }
 
 fn files_equal(a: &Path, b: &Path) -> bool {

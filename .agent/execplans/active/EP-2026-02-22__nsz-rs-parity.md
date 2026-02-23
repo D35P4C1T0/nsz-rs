@@ -40,6 +40,8 @@ After this change, the repository will provide a native safe Rust library that r
   Evidence: Failure on downloading `index.crates.io/config.json`, then success after approved escalated `cargo test`.
 - Observation: Heavy real-corpus parity execution currently fails because Python baseline runtime is missing `Crypto` module (`pycryptodome` dependency).
   Evidence: `NSZ_RUN_HEAVY_PARITY=1 cargo test decompress_verify_matches_python_for_fixture -- --nocapture` failed with `ModuleNotFoundError: No module named 'Crypto'`.
+- Observation: After installing Python deps locally, heavy parity execution now fails due missing key files required by baseline NSZ tooling.
+  Evidence: Escalated heavy run fails with `Exception: Could not load keys file.` and no `prod.keys`/`keys.txt` found in expected paths.
 
 ## Decision Log
 
@@ -54,6 +56,9 @@ After this change, the repository will provide a native safe Rust library that r
   Date/Author: 2026-02-22 / [USER]
 - Decision: Canonical parity corpus root is `/home/matteo/Documents/switch_games/Bad Cheese [NSP]` and must support future additions.
   Rationale: Real-world fixtures maximize practical compatibility confidence.
+  Date/Author: 2026-02-22 / [USER]
+- Decision: Parity harness default reporting mode is fail-fast.
+  Rationale: User preference for immediate stop on first mismatch to speed triage.
   Date/Author: 2026-02-22 / [USER]
 
 ## Outcomes & Retrospective
@@ -174,4 +179,4 @@ Core dependencies to introduce:
 - (2026-02-22) Initial plan created from approved brainstorming design and repository continuity constraints.
 - (2026-02-22) Updated progress after completing implementation Tasks 1-4 and recording dependency-resolution discovery.
 - (2026-02-22) Updated progress after completing Tasks 5-8 (fs policy, key loading, container and NCZ header primitives).
-- (2026-02-22) Updated progress after starting Task 9 and recording Python baseline dependency blocker from heavy parity run.
+- (2026-02-22) Updated progress after starting Task 9 and recording baseline blockers (dependency install then key-file absence).
