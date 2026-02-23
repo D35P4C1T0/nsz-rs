@@ -13,3 +13,24 @@ fn ncz_decompressed_size_matches_header_sections() {
     let size = nsz_rs::ncz::decompress::decompressed_nca_size_from_bytes(&fixture).unwrap();
     assert_eq!(size, 0x4000 + 0x1200);
 }
+
+#[test]
+fn ncz_native_decompress_roundtrip_no_crypto() {
+    let payload = b"native-ncz-payload";
+    let compressed = zstd::stream::encode_all(&payload[..], 1).unwrap();
+
+    let mut fixture = vec![0u8; 0x4000];
+    fixture.extend_from_slice(b"NCZSECTN");
+    fixture.extend_from_slice(&(1u64).to_le_bytes());
+    fixture.extend_from_slice(&(0x4000u64).to_le_bytes());
+    fixture.extend_from_slice(&(payload.len() as u64).to_le_bytes());
+    fixture.extend_from_slice(&(0u64).to_le_bytes());
+    fixture.extend_from_slice(&0u64.to_le_bytes());
+    fixture.extend_from_slice(&[0u8; 16]);
+    fixture.extend_from_slice(&[0u8; 16]);
+    fixture.extend_from_slice(&compressed);
+
+    let decompressed = nsz_rs::ncz::decompress::decompress_ncz_to_vec(&fixture).unwrap();
+    assert_eq!(decompressed.len(), 0x4000 + payload.len());
+    assert_eq!(&decompressed[0x4000..], payload);
+}

@@ -10,6 +10,8 @@ pub enum NszError {
     MissingRequiredKey { key: String },
     #[error("container format error: {message}")]
     ContainerFormat { message: String },
+    #[error("unsupported feature: {feature}")]
+    UnsupportedFeature { feature: String },
     #[error("external command failed: {command} (status: {status}) {stderr}")]
     ExternalCommand {
         command: String,

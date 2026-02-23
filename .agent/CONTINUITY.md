@@ -6,12 +6,12 @@ Add dated entries with provenance tags per AGENTS.md: [USER], [CODE], [TOOL], [A
 ## Snapshot
 
 Goal: 2026-02-22 [USER] Reimplement Python `nsz` in native safe Rust with total feature parity.
-Now: 2026-02-22 [CODE] Heavy Task 9 parity test runs successfully and native NCZ decompression metadata parsing has started.
+Now: 2026-02-22 [CODE] Heavy Task 9 parity test runs successfully and initial native NCZ zstd decompression path is implemented (no-crypto sections).
 Next: 2026-02-22 [ASSUMPTION] Continue Task 9 by implementing native Rust decompress/verify internals and removing baseline adapter dependency.
 Open Questions: 2026-02-22 [UNCONFIRMED] No unresolved environment blockers; next unknown is native-path implementation complexity versus baseline adapter replacement rate.
 
 ## Done (recent)
-- 2026-02-22 [CODE] Added native NCZ metadata parser scaffold `src/ncz/decompress.rs` and passing size test `ncz_decompressed_size_matches_header_sections`.
+- 2026-02-22 [CODE] Added native NCZ decompression groundwork: section parser + decompressed-size + no-crypto zstd roundtrip (`ncz_native_decompress_roundtrip_no_crypto`).
 - 2026-02-22 [USER] Provided `keys.txt` in repo root; heavy parity baseline now has usable keys path via test home provisioning.
 - 2026-02-22 [TOOL] Heavy parity command passes: `NSZ_RUN_HEAVY_PARITY=1 cargo test decompress_verify_matches_python_for_fixture -- --nocapture` (with escalated permissions for multiprocessing).
 - 2026-02-22 [CODE] Updated Task 9 test to provision temporary `HOME/.switch/keys.txt` from discovered key locations (python repo root, workspace root, or existing home switch dir).
@@ -60,3 +60,4 @@ Open Questions: 2026-02-22 [UNCONFIRMED] No unresolved environment blockers; nex
 - 2026-02-22 [USER] Added `keys.txt` in workspace root (`/home/matteo/Documents/prog/rust/nsz-rs/keys.txt`).
 - 2026-02-22 [TOOL] Heavy parity rerun passes after key-home provisioning: `NSZ_RUN_HEAVY_PARITY=1 cargo test decompress_verify_matches_python_for_fixture -- --nocapture`.
 - 2026-02-22 [TOOL] Native NCZ metadata test passes: `cargo test ncz_decompressed_size_matches_header_sections -q`.
+- 2026-02-22 [TOOL] Native no-crypto NCZ roundtrip test passes: `cargo test ncz_native_decompress_roundtrip_no_crypto -q`.
