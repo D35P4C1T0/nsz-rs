@@ -40,7 +40,8 @@ After this change, the repository will provide a native safe Rust library that r
 - [x] (2026-02-23T03:40Z) Completed fast heavy parity mode run and captured runtime receipt (`507.12s`) while retaining full-mode receipt (`1093.75s`).
 - [x] (2026-02-23T04:05Z) Completed parity-first `decompress`/`verify` native fallback removal for covered formats (`.nca`/`.ncz`/`.nsp`/`.nsz`/`.xci`/`.xcz`).
 - [x] (2026-02-23T16:20Z) Implemented `compress` operation wiring with Python parity CLI dispatch, full option/config mapping, and integration coverage for output reporting.
-- [ ] Replace `compress` Python parity dispatch with native solid/block compression parity path.
+- [x] (2026-02-23T16:55Z) Added native `compress` paths for `.nca`/`.nsp`/`.xci` by emitting NCZ payloads and rewriting NSP/XCI containers without Python fallback; fallback retained for unsupported formats.
+- [ ] Replace minimal native `compress` NCZ emission with strict Python 4.6.1 solid/block byte-parity behavior.
 - [ ] Implement remaining operations in parity-first order: `extract`/`create`/`titlekeys`/`undupe`.
 - [ ] Implement corpus-wide parity harness and docs for adding new samples.
 - [x] (2026-02-23T02:40Z) Ran verification gates for this slice (`cargo fmt --all`, `cargo test -q`, `cargo clippy --all-targets --all-features -- -D warnings`, heavy parity) and resolved regressions.
@@ -84,6 +85,8 @@ After this change, the repository will provide a native safe Rust library that r
   Evidence: `decompress_uses_native_path_for_xcz_inputs` passes with invalid Python repo path; `cargo fmt --all && cargo test -q && cargo clippy --all-targets --all-features -- -D warnings` stays green.
 - Observation: `compress` operation can be stabilized first as a parity wrapper by mapping Rust request fields to NSZ CLI flags and deriving output paths from produced artifacts.
   Evidence: `compress_invokes_cli_and_reports_outputs` passes using a fake local `nsz.py`; full gates remain green.
+- Observation: once native `.nsp/.xci` compression is introduced, CLI fallback coverage needs to target unsupported extensions so native parsing does not mask fallback behavior.
+  Evidence: previous `.nsp/.xci` fallback test failed with `PFS0 container too short`; updated fallback test on `.txt` input now passes.
 
 ## Decision Log
 
@@ -105,7 +108,7 @@ After this change, the repository will provide a native safe Rust library that r
 
 ## Outcomes & Retrospective
 
-Current status: Task 9 native replacement now covers `.ncz`/`.nsz`/`.xcz` decompression and `.nca`/`.ncz`/`.nsp`/`.nsz`/`.xci`/`.xcz` verify flows without Python fallback, backed by synthetic native-path tests and expanded corpus parity checks. `compress` is now operational via a parity CLI wrapper while native compression is still pending. Remaining work is native `compress`, then `extract`/`create`/`titlekeys`/`undupe`, plus corpus-gate policy/documentation.
+Current status: Task 9 native replacement now covers `.ncz`/`.nsz`/`.xcz` decompression and `.nca`/`.ncz`/`.nsp`/`.nsz`/`.xci`/`.xcz` verify flows without Python fallback, backed by synthetic native-path tests and expanded corpus parity checks. `compress` now has both fallback and native routes (`.nca`/`.nsp`/`.xci`), but native output still needs strict byte-parity alignment with Python 4.6.1 solid/block behavior. Remaining work is strict native `compress` parity, then `extract`/`create`/`titlekeys`/`undupe`, plus corpus-gate policy/documentation.
 
 ## Context and Orientation
 
@@ -237,3 +240,4 @@ Core dependencies to introduce:
 - (2026-02-23) Completed fast heavy parity mode run and recorded runtime evidence versus full mode.
 - (2026-02-23) Added native `.xcz -> .xci` decompression by rebuilding nested HFS0/XCI containers and updated plan state to mark `decompress`/`verify` fallback removal complete.
 - (2026-02-23) Added `compress` operation parity wrapper (`ops::compress`) with Rust request-to-CLI flag mapping and integration coverage for processed output reporting.
+- (2026-02-23) Extended `compress` with native `.nca` conversion plus native `.nsp/.xci` container rewriting and updated fallback integration tests to exercise unsupported-extension routing.
