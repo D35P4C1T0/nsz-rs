@@ -23,7 +23,7 @@ Keep entries short, greppable, and consistent.
 
 ## Active ExecPlans
 
-- `EP-2026-02-22__nsz-rs-parity` — `NSZ Rust Library 1:1 Parity With Python 4.6.1` — `Status:ACTIVE` — `Created:2026-02-22` — `Updated:2026-02-22` — `Path:.agent/execplans/active/EP-2026-02-22__nsz-rs-parity.md` — `Owner:UNCONFIRMED` — `Summary:Implement safe Rust library with byte-identical parity to Python 4.6.1 using parity-first migration` — `Links:docs/plans/2026-02-22-nsz-rs-parity-design.md,docs/plans/2026-02-22-nsz-rs-parity-implementation.md`
+- `EP-2026-02-22__nsz-rs-parity` — `NSZ Rust Library 1:1 Parity With Python 4.6.1` — `Status:ACTIVE` — `Created:2026-02-22` — `Updated:2026-02-23` — `Path:.agent/execplans/active/EP-2026-02-22__nsz-rs-parity.md` — `Owner:UNCONFIRMED` — `Summary:Implement safe Rust library with byte-identical parity to Python 4.6.1 using parity-first migration` — `Links:docs/plans/2026-02-22-nsz-rs-parity-design.md,docs/plans/2026-02-22-nsz-rs-parity-implementation.md`
 
 ## Archived ExecPlans
 

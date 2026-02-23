@@ -7,7 +7,7 @@ This document is maintained under `.agent/PLANS.md` requirements and is the cano
 - Plan ID: EP-2026-02-22__nsz-rs-parity
 - Status: ACTIVE
 - Created: 2026-02-22
-- Last Updated: 2026-02-22
+- Last Updated: 2026-02-23
 - Owner: UNCONFIRMED
 
 ## Purpose / Big Picture
@@ -24,12 +24,13 @@ After this change, the repository will provide a native safe Rust library that r
 - [x] (2026-02-22T23:40Z) Implemented deterministic compress defaults and parity mismatch error contract tests.
 - [x] (2026-02-22T23:50Z) Implemented filesystem write policy primitives and key-loading required-key checks with passing tests.
 - [x] (2026-02-22T23:56Z) Implemented minimal container and NCZ binary layout primitives with deterministic roundtrip tests.
-- [ ] (2026-02-22T23:59Z) Started Task 9: added `ops::decompress`/`ops::verify` path wiring and real-corpus parity test scaffold (`decompress_verify_matches_python_for_fixture`), pending Python baseline dependency readiness for full run.
+- [x] (2026-02-22T23:59Z) Started Task 9: added `ops::decompress`/`ops::verify` path wiring and real-corpus parity test scaffold (`decompress_verify_matches_python_for_fixture`), pending Python baseline dependency readiness for full run.
 - [x] (2026-02-23T00:12Z) Unblocked heavy Task 9 parity execution by wiring local baseline venv + key provisioning and passing real-corpus fail-fast parity test.
-- [ ] (2026-02-23T00:18Z) Began native Task 9 replacement work by adding NCZ section parsing, decompressed-size computation, and a no-crypto zstd decompression path (`ncz::decompress`) with passing unit tests.
-- [ ] (2026-02-23T00:26Z) Added native `.ncz` operation dispatch in `ops::decompress` with dedicated integration test proving no Python dependency for `.ncz` inputs.
-- [ ] (2026-02-23T00:36Z) Extended native NCZ path with AES-CTR handling for crypto types 3/4 and passing crypto roundtrip test; heavy fail-fast parity remains green.
-- [ ] (2026-02-23T00:44Z) Added native `.ncz` verify dispatch in `ops::verify` with SHA-256 filename-prefix validation and integration coverage.
+- [x] (2026-02-23T00:18Z) Began native Task 9 replacement work by adding NCZ section parsing, decompressed-size computation, and a no-crypto zstd decompression path (`ncz::decompress`) with passing unit tests.
+- [x] (2026-02-23T00:26Z) Added native `.ncz` operation dispatch in `ops::decompress` with dedicated integration test proving no Python dependency for `.ncz` inputs.
+- [x] (2026-02-23T00:36Z) Extended native NCZ path with AES-CTR handling for crypto types 3/4 and passing crypto roundtrip test; heavy fail-fast parity remains green.
+- [x] (2026-02-23T00:44Z) Added native `.ncz` verify dispatch in `ops::verify` with SHA-256 filename-prefix validation and integration coverage.
+- [x] (2026-02-23T01:08Z) Added native `NCZBLOCK` stream decode support in `ncz::decompress` with block roundtrip test, full fmt/test/clippy validation, and heavy fail-fast parity rerun.
 - [ ] Implement operations in parity-first order: decompress/verify, then compress, then extract/create/titlekeys/undupe.
 - [ ] Implement corpus-wide parity harness and docs for adding new samples.
 - [ ] Run formatting, lint, tests, and parity gates; fix regressions.
@@ -51,8 +52,10 @@ After this change, the repository will provide a native safe Rust library that r
   Evidence: `NSZ_RUN_HEAVY_PARITY=1 cargo test decompress_verify_matches_python_for_fixture -- --nocapture` passed after key-home provisioning update.
 - Observation: Native NCZ decompression path initially supported only non-crypto sections and non-`NCZBLOCK` streams. SUPERSEDED by subsequent AES-CTR support note.
   Evidence: Early `ncz_native_decompress_roundtrip_no_crypto` passed before crypto support landed.
-- Observation: Native NCZ decompression now supports crypto types 3/4 with AES-CTR; `NCZBLOCK` remains unsupported.
-  Evidence: `ncz_native_decompress_roundtrip_crypto_type3` passes and `UnsupportedFeature` guard remains only for `NCZBLOCK` and unknown crypto types.
+- Observation: Native NCZ decompression now supports crypto types 3/4 with AES-CTR; `NCZBLOCK` remains unsupported. SUPERSEDED 2026-02-23.
+  Evidence: `ncz_native_decompress_roundtrip_crypto_type3` passes and earlier `UnsupportedFeature` guard covered `NCZBLOCK`.
+- Observation: Native NCZ decompression now supports `NCZBLOCK` payloads with block-wise passthrough and zstd decode paths.
+  Evidence: `ncz_native_decompress_roundtrip_block_stream`, `cargo fmt --all && cargo test -q`, `cargo clippy --all-targets --all-features -- -D warnings`, and heavy parity rerun all pass.
 - Observation: Native `.ncz` verify route works without Python by using Rust decompression + hash-prefix checks.
   Evidence: `verify_uses_native_path_for_ncz_inputs` passes with intentionally invalid Python repo path.
 
@@ -76,7 +79,7 @@ After this change, the repository will provide a native safe Rust library that r
 
 ## Outcomes & Retrospective
 
-Current status: implementation foundation slice is complete through binary/header primitives, and Task 9 wiring has started. The library now includes API scaffolding, baseline version probing, defaults/error contracts, filesystem policy checks, key parser validation, deterministic roundtrip tests for PFS0 and NCZ block headers, plus preliminary decompress/verify operation wiring and parity test harnessing. Remaining work is full native operation implementations and corpus-wide parity validation once baseline dependencies are available.
+Current status: implementation foundation slice is complete through binary/header primitives, and Task 9 native replacement is progressing with `.ncz` op/verify paths, AES-CTR support, and `NCZBLOCK` stream decoding in place. The library now includes API scaffolding, baseline version probing, defaults/error contracts, filesystem policy checks, key parser validation, deterministic roundtrip tests for PFS0/NCZ metadata, and fail-fast parity harnessing on the canonical fixture. Remaining work is full native implementations for non-`.ncz` operation surfaces and expanded corpus-wide parity validation.
 
 ## Context and Orientation
 
@@ -199,3 +202,4 @@ Core dependencies to introduce:
 - (2026-02-23) Extended Task 9 native replacement by routing `.ncz` operation calls through Rust decompression path with new integration coverage.
 - (2026-02-23) Extended native NCZ replacement with AES-CTR crypto handling for types 3/4 and validated heavy fail-fast parity still passes.
 - (2026-02-23) Extended Task 9 native replacement with `.ncz` verify dispatch and hash-prefix validation, keeping heavy fail-fast parity green.
+- (2026-02-23) Added native `NCZBLOCK` decoding path with roundtrip coverage and refreshed verification gates (`fmt`, `test`, `clippy`, heavy parity).

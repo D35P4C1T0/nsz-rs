@@ -41,14 +41,7 @@ pub fn decompress_ncz_to_vec(data: &[u8]) -> Result<Vec<u8>, NszError> {
         });
     }
 
-    if data.len() >= stream_offset + 8 && &data[stream_offset..stream_offset + 8] == b"NCZBLOCK" {
-        return Err(NszError::UnsupportedFeature {
-            feature: "NCZBLOCK compressed stream".to_string(),
-        });
-    }
-
-    let zstd_stream = &data[stream_offset..];
-    let decompressed = zstd::stream::decode_all(zstd_stream)?;
+    let decompressed = decode_ncz_stream(data, stream_offset)?;
 
     let mut output = Vec::with_capacity(decompressed_nca_size_from_bytes(data)? as usize);
     output.extend_from_slice(&data[..UNCOMPRESSABLE_HEADER_SIZE]);
@@ -140,6 +133,86 @@ fn parse_sections_with_end(data: &[u8]) -> Result<(Vec<NczSection>, usize), NszE
     }
 
     Ok((sections, cursor))
+}
+
+fn decode_ncz_stream(data: &[u8], stream_offset: usize) -> Result<Vec<u8>, NszError> {
+    if data.len() >= stream_offset + 8 && &data[stream_offset..stream_offset + 8] == b"NCZBLOCK" {
+        return decode_ncz_block_stream(&data[stream_offset..]);
+    }
+    zstd::stream::decode_all(&data[stream_offset..]).map_err(NszError::from)
+}
+
+fn decode_ncz_block_stream(data: &[u8]) -> Result<Vec<u8>, NszError> {
+    if data.len() < 24 {
+        return Err(NszError::ContainerFormat {
+            message: "NCZBLOCK header too short".to_string(),
+        });
+    }
+    if &data[0..8] != b"NCZBLOCK" {
+        return Err(NszError::ContainerFormat {
+            message: "NCZBLOCK magic mismatch".to_string(),
+        });
+    }
+
+    let block_size_exp = data[11];
+    if !(14..=32).contains(&block_size_exp) {
+        return Err(NszError::ContainerFormat {
+            message: "NCZBLOCK block size exponent out of range".to_string(),
+        });
+    }
+    let block_size = 1usize << block_size_exp;
+    let number_of_blocks = u32::from_le_bytes(data[12..16].try_into().unwrap()) as usize;
+    let decompressed_size = u64::from_le_bytes(data[16..24].try_into().unwrap()) as usize;
+
+    let header_size = 24 + number_of_blocks * 4;
+    if data.len() < header_size {
+        return Err(NszError::ContainerFormat {
+            message: "NCZBLOCK header truncated sizes list".to_string(),
+        });
+    }
+
+    let mut compressed_sizes = Vec::with_capacity(number_of_blocks);
+    let mut cursor = 24usize;
+    for _ in 0..number_of_blocks {
+        compressed_sizes
+            .push(u32::from_le_bytes(data[cursor..cursor + 4].try_into().unwrap()) as usize);
+        cursor += 4;
+    }
+
+    let mut stream_cursor = header_size;
+    let mut out = Vec::with_capacity(decompressed_size);
+    for compressed_size in compressed_sizes {
+        if data.len() < stream_cursor + compressed_size {
+            return Err(NszError::ContainerFormat {
+                message: "NCZBLOCK stream truncated".to_string(),
+            });
+        }
+
+        let remaining = decompressed_size.saturating_sub(out.len());
+        let expected_block = remaining.min(block_size);
+        let block_data = &data[stream_cursor..stream_cursor + compressed_size];
+        stream_cursor += compressed_size;
+
+        if compressed_size == expected_block {
+            out.extend_from_slice(block_data);
+            continue;
+        }
+
+        let decoded = zstd::stream::decode_all(block_data)?;
+        if decoded.len() != expected_block {
+            return Err(NszError::ContainerFormat {
+                message: "NCZBLOCK decoded block size mismatch".to_string(),
+            });
+        }
+        out.extend_from_slice(&decoded);
+    }
+
+    if out.len() != decompressed_size {
+        return Err(NszError::ContainerFormat {
+            message: "NCZBLOCK decompressed size mismatch".to_string(),
+        });
+    }
+    Ok(out)
 }
 
 fn apply_aes_ctr(buf: &mut [u8], key: &[u8; 16], counter: &[u8; 16], offset: u128) {

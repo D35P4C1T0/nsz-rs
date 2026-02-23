@@ -34,3 +34,32 @@ fn ncz_native_decompress_roundtrip_no_crypto() {
     assert_eq!(decompressed.len(), 0x4000 + payload.len());
     assert_eq!(&decompressed[0x4000..], payload);
 }
+
+#[test]
+fn ncz_native_decompress_roundtrip_block_stream() {
+    let payload = b"native-block-stream-payload";
+    let compressed_block = zstd::stream::encode_all(&payload[..], 1).unwrap();
+
+    let mut fixture = vec![0u8; 0x4000];
+    fixture.extend_from_slice(b"NCZSECTN");
+    fixture.extend_from_slice(&(1u64).to_le_bytes());
+    fixture.extend_from_slice(&(0x4000u64).to_le_bytes());
+    fixture.extend_from_slice(&(payload.len() as u64).to_le_bytes());
+    fixture.extend_from_slice(&(0u64).to_le_bytes());
+    fixture.extend_from_slice(&0u64.to_le_bytes());
+    fixture.extend_from_slice(&[0u8; 16]);
+    fixture.extend_from_slice(&[0u8; 16]);
+
+    fixture.extend_from_slice(b"NCZBLOCK");
+    fixture.push(2);
+    fixture.push(1);
+    fixture.push(0);
+    fixture.push(20);
+    fixture.extend_from_slice(&(1u32).to_le_bytes());
+    fixture.extend_from_slice(&(payload.len() as u64).to_le_bytes());
+    fixture.extend_from_slice(&(compressed_block.len() as u32).to_le_bytes());
+    fixture.extend_from_slice(&compressed_block);
+
+    let decompressed = nsz_rs::ncz::decompress::decompress_ncz_to_vec(&fixture).unwrap();
+    assert_eq!(&decompressed[0x4000..], payload);
+}

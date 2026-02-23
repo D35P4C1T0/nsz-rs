@@ -6,17 +6,17 @@ Add dated entries with provenance tags per AGENTS.md: [USER], [CODE], [TOOL], [A
 ## Snapshot
 
 Goal: 2026-02-22 [USER] Reimplement Python `nsz` in native safe Rust with total feature parity.
-Now: 2026-02-22 [CODE] Native `.ncz` operation and verify paths both run without Python fallback, and heavy fail-fast parity remains green.
-Next: 2026-02-22 [ASSUMPTION] Continue Task 9 by implementing native Rust decompress/verify internals and removing baseline adapter dependency.
-Open Questions: 2026-02-22 [UNCONFIRMED] No unresolved environment blockers; next unknown is native-path implementation complexity versus baseline adapter replacement rate.
+Now: 2026-02-23 [CODE] Native `.ncz` operation and verify paths run without Python fallback, including `NCZBLOCK` and crypto types 3/4; heavy fail-fast parity remains green.
+Next: 2026-02-23 [ASSUMPTION] Continue Task 9 by extending native decompress/verify parity coverage and shrinking Python baseline fallback surface.
+Open Questions: 2026-02-23 [UNCONFIRMED] Need broader real-corpus confirmation of `NCZBLOCK` edge cases (mixed passthrough/compressed blocks) beyond synthetic fixture coverage.
 
 ## Done (recent)
-- 2026-02-22 [CODE] Added native `.ncz` verify branch in `ops::verify` using Rust NCZ decompression + SHA-256 prefix check.
-- 2026-02-22 [CODE] Added integration test `verify_uses_native_path_for_ncz_inputs`.
-- 2026-02-22 [CODE] Native NCZ path supports both no-crypto and crypto types 3/4 (AES-CTR) via `ncz::decompress`.
-- 2026-02-22 [TOOL] Native op/verify tests pass: `decompress_uses_native_path_for_ncz_inputs`, `verify_uses_native_path_for_ncz_inputs`, `ncz_native_decompress_roundtrip_crypto_type3`.
-- 2026-02-22 [TOOL] Heavy fail-fast parity still passes after native verify additions.
-- 2026-02-22 [TOOL] Full regular suite remains green (`cargo fmt --all && cargo test -q`).
+- 2026-02-23 [CODE] Added native `NCZBLOCK` stream decode path in `ncz::decompress` for block-wise zstd/passthrough handling.
+- 2026-02-23 [CODE] Added integration-style unit test `ncz_native_decompress_roundtrip_block_stream`.
+- 2026-02-23 [TOOL] Targeted regression test passes: `cargo test ncz_native_decompress_roundtrip_block_stream -q`.
+- 2026-02-23 [TOOL] Full regular suite remains green (`cargo fmt --all && cargo test -q`).
+- 2026-02-23 [TOOL] Lint gate passes (`cargo clippy --all-targets --all-features -- -D warnings`).
+- 2026-02-23 [TOOL] Heavy fail-fast parity remains green after `NCZBLOCK` support (`NSZ_RUN_HEAVY_PARITY=1 cargo test decompress_verify_matches_python_for_fixture -- --nocapture`, escalated).
 - 2026-02-22 [TOOL] Local baseline environment remains configured (`.venv-nsz-baseline`, keys provisioning via workspace `keys.txt`).
 
 ## Working set
@@ -65,3 +65,6 @@ Open Questions: 2026-02-22 [UNCONFIRMED] No unresolved environment blockers; nex
 - 2026-02-22 [TOOL] Heavy fail-fast parity rerun passes after native crypto update: `NSZ_RUN_HEAVY_PARITY=1 cargo test decompress_verify_matches_python_for_fixture -- --nocapture`.
 - 2026-02-22 [TOOL] Native `.ncz` verify-path test passes: `cargo test verify_uses_native_path_for_ncz_inputs -q`.
 - 2026-02-22 [TOOL] Heavy fail-fast parity rerun passes after native verify update: `NSZ_RUN_HEAVY_PARITY=1 cargo test decompress_verify_matches_python_for_fixture -- --nocapture`.
+- 2026-02-23 [TOOL] Added and passed block-stream roundtrip coverage: `cargo test ncz_native_decompress_roundtrip_block_stream -q`.
+- 2026-02-23 [TOOL] Validation gates pass after `NCZBLOCK` decode addition: `cargo fmt --all && cargo test -q` and `cargo clippy --all-targets --all-features -- -D warnings`.
+- 2026-02-23 [TOOL] Heavy parity in sandbox still fails with Python multiprocessing permission; escalated rerun passes with no parity mismatch.
