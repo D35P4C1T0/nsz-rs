@@ -6,18 +6,18 @@ Add dated entries with provenance tags per AGENTS.md: [USER], [CODE], [TOOL], [A
 ## Snapshot
 
 Goal: 2026-02-22 [USER] Reimplement Python `nsz` in native safe Rust with total feature parity.
-Now: 2026-02-23 [CODE] Native paths now cover `.ncz` + `.nsz` decompression and `.ncz`/`.nsp`/`.nsz` verify without Python fallback; expanded heavy corpus parity passes.
+Now: 2026-02-23 [CODE] Native paths now cover `.nca`/`.ncz`/`.nsp`/`.nsz` verify plus `.ncz`/`.nsz` decompress; heavy parity supports optional fixture-limited fast mode.
 Next: 2026-02-23 [ASSUMPTION] Continue Task 9 by reducing fallback for XCI/XCZ-related paths and filling remaining operation parity gaps.
-Open Questions: 2026-02-23 [UNCONFIRMED] Expanded heavy parity runtime is high (~18 minutes in debug); decision pending on whether to split fast-vs-full corpus gates.
+Open Questions: 2026-02-23 [UNCONFIRMED] Need finalized default policy for heavy parity mode selection (`full` vs `fast`) in automated runs.
 
 ## Done (recent)
-- 2026-02-23 [CODE] Added native PFS0/NSP parser-writer (`container::nsp`) with bounds checks and deterministic re-encoding.
-- 2026-02-23 [CODE] Added native `.nsz -> .nsp` decompression path in `ops::decompress` (including `.ncz -> .nca` entry rewrite).
-- 2026-02-23 [CODE] Added native `.nsp`/`.nsz` verify path in `ops::verify` plus native tests for `.nsz` decompress and `.nsp`/`.nsz` verify without Python.
-- 2026-02-23 [CODE] Matched Python crypto semantics by treating non-`3/4` NCZ crypto types as passthrough; added regression test.
-- 2026-02-23 [CODE] Expanded heavy corpus parity harness to iterate discovered `.nsz` and `.nsp` fixtures under canonical corpus root.
-- 2026-02-23 [TOOL] Validation gates pass: `cargo fmt --all && cargo test -q && cargo clippy --all-targets --all-features -- -D warnings`.
-- 2026-02-23 [TOOL] Expanded heavy parity passes: `NSZ_RUN_HEAVY_PARITY=1 cargo test decompress_verify_matches_python_for_fixture -- --nocapture` (escalated; ~1093.75s).
+- 2026-02-23 [CODE] Added native standalone `.nca` verify path in `ops::verify` with `.cnmt.nca` hash-skip parity semantics.
+- 2026-02-23 [CODE] Added tests `verify_uses_native_path_for_nca_inputs` and `verify_skips_cnmt_nca_hash_check`.
+- 2026-02-23 [CODE] Added heavy parity fixture controls in `tests/decompress_verify_parity.rs`: `NSZ_HEAVY_PARITY_MODE=fast|full` and `NSZ_HEAVY_PARITY_MAX_FILES`.
+- 2026-02-23 [TOOL] New `.nca` native-path tests pass with invalid Python repo root (proves no Python fallback).
+- 2026-02-23 [TOOL] Validation gates pass after `.nca` + parity-mode updates: `cargo fmt --all && cargo test -q && cargo clippy --all-targets --all-features -- -D warnings`.
+- 2026-02-23 [TOOL] Heavy parity fast-mode command was started escalated but user interrupted before completion (`turn_aborted`).
+- 2026-02-23 [TOOL] Confirmed no lingering heavy parity process after interruption (`ps` check clean).
 
 ## Working set
 - /home/matteo/Documents/prog/rust/nsz-rs/.agent/CONTINUITY.md
@@ -30,6 +30,7 @@ Open Questions: 2026-02-23 [UNCONFIRMED] Expanded heavy parity runtime is high (
 - /home/matteo/Documents/prog/rust/nsz-rs/tests/decompress_verify_parity.rs
 - /home/matteo/Documents/prog/rust/nsz-rs/tests/ncz_decompress_meta.rs
 - /home/matteo/Documents/prog/rust/nsz-rs/tests/decompress_native_nsz_op.rs
+- /home/matteo/Documents/prog/rust/nsz-rs/tests/verify_native_nca_op.rs
 - /home/matteo/Documents/prog/rust/nsz-rs/tests/verify_native_nsp_nsz_op.rs
 - /home/matteo/Documents/prog/rust/nsz-rs/tests/verify_native_ncz_op.rs
 - /home/matteo/Documents/switch_games/Bad Cheese [NSP]
@@ -72,3 +73,6 @@ Open Questions: 2026-02-23 [UNCONFIRMED] Expanded heavy parity runtime is high (
 - 2026-02-23 [TOOL] New red-green coverage landed for native non-`.ncz` paths: `decompress_uses_native_path_for_nsz_inputs`, `verify_uses_native_path_for_nsp_inputs`, `verify_uses_native_path_for_nsz_inputs`.
 - 2026-02-23 [TOOL] Real-corpus heavy parity initially failed on `UnsupportedFeature` for NCZ crypto type != 0/3/4; fixed by passthrough semantics and regression test `ncz_native_decompress_unknown_crypto_type_is_passthrough`.
 - 2026-02-23 [TOOL] Expanded heavy parity passes after fixes: `NSZ_RUN_HEAVY_PARITY=1 cargo test decompress_verify_matches_python_for_fixture -- --nocapture` (escalated), duration `1093.75s`.
+- 2026-02-23 [TOOL] Added passing native `.nca` verify coverage: `cargo test verify_uses_native_path_for_nca_inputs -- --nocapture` and `cargo test verify_skips_cnmt_nca_hash_check -- --nocapture`.
+- 2026-02-23 [TOOL] Added optional heavy parity fixture limiter controls (`NSZ_HEAVY_PARITY_MODE`, `NSZ_HEAVY_PARITY_MAX_FILES`) and validated compile/test gates.
+- 2026-02-23 [TOOL] Escalated fast heavy parity run was interrupted by user before completion; no post-abort parity process remained active.

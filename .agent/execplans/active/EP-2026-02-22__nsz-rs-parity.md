@@ -33,6 +33,8 @@ After this change, the repository will provide a native safe Rust library that r
 - [x] (2026-02-23T01:08Z) Added native `NCZBLOCK` stream decode support in `ncz::decompress` with block roundtrip test, full fmt/test/clippy validation, and heavy fail-fast parity rerun.
 - [x] (2026-02-23T02:20Z) Added native `.nsz` decompression path using PFS0 parse/rewrite and native `.nsp`/`.nsz` verify paths without Python fallback.
 - [x] (2026-02-23T02:35Z) Expanded heavy corpus parity fixture loop to discovered `.nsz` and `.nsp` samples; matched Python behavior for non-`3/4` NCZ crypto types by passthrough.
+- [x] (2026-02-23T03:10Z) Added native standalone `.nca` verify path with `.cnmt.nca` skip behavior and dedicated no-Python integration coverage.
+- [x] (2026-02-23T03:15Z) Added optional heavy parity fixture limit controls (`NSZ_HEAVY_PARITY_MODE`, `NSZ_HEAVY_PARITY_MAX_FILES`) to support faster smoke parity loops.
 - [ ] Implement operations in parity-first order: decompress/verify, then compress, then extract/create/titlekeys/undupe.
 - [ ] Implement corpus-wide parity harness and docs for adding new samples.
 - [x] (2026-02-23T02:40Z) Ran verification gates for this slice (`cargo fmt --all`, `cargo test -q`, `cargo clippy --all-targets --all-features -- -D warnings`, heavy parity) and resolved regressions.
@@ -64,6 +66,10 @@ After this change, the repository will provide a native safe Rust library that r
   Evidence: Heavy parity failed with `UnsupportedFeature` until Rust implementation removed strict type rejection and regression test `ncz_native_decompress_unknown_crypto_type_is_passthrough` was added.
 - Observation: Expanded heavy parity loop across discovered `.nsz` and `.nsp` fixtures is valid but expensive in debug mode.
   Evidence: `NSZ_RUN_HEAVY_PARITY=1 cargo test decompress_verify_matches_python_for_fixture -- --nocapture` passed in `1093.75s`.
+- Observation: Native verify fallback surface can be further reduced with standalone `.nca` handling, while preserving `.cnmt.nca` skip semantics from container verify behavior.
+  Evidence: `verify_uses_native_path_for_nca_inputs` and `verify_skips_cnmt_nca_hash_check` pass using invalid Python repo paths.
+- Observation: Fast heavy parity mode wiring compiles and regular gates pass, but end-to-end fast run receipt is currently interrupted by user action.
+  Evidence: Escalated `NSZ_RUN_HEAVY_PARITY=1 NSZ_HEAVY_PARITY_MODE=fast ...` run started successfully and was interrupted by `turn_aborted`.
 
 ## Decision Log
 
@@ -211,3 +217,5 @@ Core dependencies to introduce:
 - (2026-02-23) Added native `NCZBLOCK` decoding path with roundtrip coverage and refreshed verification gates (`fmt`, `test`, `clippy`, heavy parity).
 - (2026-02-23) Added native `.nsz` decompression and `.nsp`/`.nsz` verify implementations with no-Python integration tests.
 - (2026-02-23) Expanded heavy parity fixture coverage to discovered `.nsz` and `.nsp` corpus files and aligned NCZ crypto-type passthrough semantics with Python.
+- (2026-02-23) Added native standalone `.nca` verify path plus `.cnmt.nca` skip handling and new no-Python tests.
+- (2026-02-23) Added optional heavy parity fast-mode fixture limiting controls; full end-to-end fast-mode timing remains UNCONFIRMED due user interruption.

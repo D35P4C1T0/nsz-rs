@@ -13,6 +13,14 @@ pub fn run(request: &VerifyRequest) -> Result<VerifyReport, NszError> {
 
     for file in &request.files {
         match normalized_extension(file) {
+            Some("nca") => {
+                if !is_cnmt_nca_name(file) {
+                    let input = std::fs::read(file)?;
+                    verify_hash_against_stem(file, &input)?;
+                }
+                verified_files.push(file.clone());
+                continue;
+            }
             Some("ncz") => {
                 let input = std::fs::read(file)?;
                 let decompressed = crate::ncz::decompress::decompress_ncz_to_vec(&input)?;
@@ -57,12 +65,7 @@ fn verify_nsp_like_container(data: &[u8], compressed: bool) -> Result<(), NszErr
             .and_then(|ext| ext.to_str())
             .unwrap_or_default();
         if ext.eq_ignore_ascii_case("nca") {
-            let is_cnmt = name_path
-                .file_name()
-                .and_then(|name| name.to_str())
-                .map(|name| name.to_ascii_lowercase().ends_with(".cnmt.nca"))
-                .unwrap_or(false);
-            if is_cnmt {
+            if is_cnmt_nca_name(name_path) {
                 continue;
             }
             let bytes = archive.entry_bytes(data, entry);
@@ -114,6 +117,7 @@ fn verify_hash_against_expected(expected_stem: &str, bytes: &[u8]) -> Result<(),
 
 fn normalized_extension(path: &Path) -> Option<&str> {
     match path.extension().and_then(|ext| ext.to_str()) {
+        Some(ext) if ext.eq_ignore_ascii_case("nca") => Some("nca"),
         Some(ext) if ext.eq_ignore_ascii_case("ncz") => Some("ncz"),
         Some(ext) if ext.eq_ignore_ascii_case("nsp") => Some("nsp"),
         Some(ext) if ext.eq_ignore_ascii_case("nsz") => Some("nsz"),
@@ -121,4 +125,11 @@ fn normalized_extension(path: &Path) -> Option<&str> {
         Some(ext) if ext.eq_ignore_ascii_case("xci") => Some("xci"),
         _ => None,
     }
+}
+
+fn is_cnmt_nca_name(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .map(|name| name.to_ascii_lowercase().ends_with(".cnmt.nca"))
+        .unwrap_or(false)
 }

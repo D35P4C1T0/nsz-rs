@@ -23,6 +23,7 @@ fn decompress_verify_matches_python_for_fixture() {
 
     let corpus_root = PathBuf::from("/home/matteo/Documents/switch_games/Bad Cheese [NSP]");
     let nsz_fixtures = collect_files_with_extension(&corpus_root, "nsz");
+    let nsz_fixtures = apply_heavy_fixture_mode(nsz_fixtures);
     for source_nsz in &nsz_fixtures {
         let fixture_id = source_nsz
             .file_stem()
@@ -87,6 +88,7 @@ fn decompress_verify_matches_python_for_fixture() {
     }
 
     let nsp_fixtures = collect_files_with_extension(&corpus_root, "nsp");
+    let nsp_fixtures = apply_heavy_fixture_mode(nsp_fixtures);
     for source_nsp in &nsp_fixtures {
         nsz_rs::parity::python_runner::run_nsz_cli(
             &python_repo,
@@ -125,6 +127,25 @@ fn collect_files_with_extension(root: &Path, extension: &str) -> Vec<PathBuf> {
 
     out.sort();
     out
+}
+
+fn apply_heavy_fixture_mode(mut fixtures: Vec<PathBuf>) -> Vec<PathBuf> {
+    let mode = std::env::var("NSZ_HEAVY_PARITY_MODE")
+        .unwrap_or_else(|_| "full".to_string())
+        .to_ascii_lowercase();
+    if mode == "fast" && fixtures.len() > 1 {
+        fixtures.truncate(1);
+    }
+
+    if let Ok(limit) = std::env::var("NSZ_HEAVY_PARITY_MAX_FILES") {
+        if let Ok(parsed) = limit.parse::<usize>() {
+            if parsed < fixtures.len() {
+                fixtures.truncate(parsed);
+            }
+        }
+    }
+
+    fixtures
 }
 
 fn prepare_home_with_keys(python_repo: &Path, target_home: &Path) -> bool {
