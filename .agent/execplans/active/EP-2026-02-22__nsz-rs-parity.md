@@ -24,6 +24,7 @@ After this change, the repository will provide a native safe Rust library that r
 - [x] (2026-02-22T23:40Z) Implemented deterministic compress defaults and parity mismatch error contract tests.
 - [x] (2026-02-22T23:50Z) Implemented filesystem write policy primitives and key-loading required-key checks with passing tests.
 - [x] (2026-02-22T23:56Z) Implemented minimal container and NCZ binary layout primitives with deterministic roundtrip tests.
+- [ ] (2026-02-22T23:59Z) Started Task 9: added `ops::decompress`/`ops::verify` path wiring and real-corpus parity test scaffold (`decompress_verify_matches_python_for_fixture`), pending Python baseline dependency readiness for full run.
 - [ ] Implement operations in parity-first order: decompress/verify, then compress, then extract/create/titlekeys/undupe.
 - [ ] Implement corpus-wide parity harness and docs for adding new samples.
 - [ ] Run formatting, lint, tests, and parity gates; fix regressions.
@@ -37,6 +38,8 @@ After this change, the repository will provide a native safe Rust library that r
   Evidence: python-zstandard multithread docs and zstd parameter docs captured in continuity receipts.
 - Observation: Initial `cargo test` run failed until crate dependency resolution was allowed with network access.
   Evidence: Failure on downloading `index.crates.io/config.json`, then success after approved escalated `cargo test`.
+- Observation: Heavy real-corpus parity execution currently fails because Python baseline runtime is missing `Crypto` module (`pycryptodome` dependency).
+  Evidence: `NSZ_RUN_HEAVY_PARITY=1 cargo test decompress_verify_matches_python_for_fixture -- --nocapture` failed with `ModuleNotFoundError: No module named 'Crypto'`.
 
 ## Decision Log
 
@@ -55,7 +58,7 @@ After this change, the repository will provide a native safe Rust library that r
 
 ## Outcomes & Retrospective
 
-Current status: implementation foundation slice is complete through binary/header primitives. The library now includes API scaffolding, baseline version probing, defaults/error contracts, filesystem policy checks, key parser validation, and deterministic roundtrip tests for PFS0 and NCZ block headers. Remaining work is operation pipelines and corpus-wide parity validation.
+Current status: implementation foundation slice is complete through binary/header primitives, and Task 9 wiring has started. The library now includes API scaffolding, baseline version probing, defaults/error contracts, filesystem policy checks, key parser validation, deterministic roundtrip tests for PFS0 and NCZ block headers, plus preliminary decompress/verify operation wiring and parity test harnessing. Remaining work is full native operation implementations and corpus-wide parity validation once baseline dependencies are available.
 
 ## Context and Orientation
 
@@ -171,3 +174,4 @@ Core dependencies to introduce:
 - (2026-02-22) Initial plan created from approved brainstorming design and repository continuity constraints.
 - (2026-02-22) Updated progress after completing implementation Tasks 1-4 and recording dependency-resolution discovery.
 - (2026-02-22) Updated progress after completing Tasks 5-8 (fs policy, key loading, container and NCZ header primitives).
+- (2026-02-22) Updated progress after starting Task 9 and recording Python baseline dependency blocker from heavy parity run.

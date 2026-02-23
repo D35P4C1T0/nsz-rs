@@ -18,12 +18,12 @@ pub fn compress(_: &CompressRequest) -> Result<OperationReport, NszError> {
     Err(NszError::NotImplemented("compress"))
 }
 
-pub fn decompress(_: &DecompressRequest) -> Result<OperationReport, NszError> {
-    Err(NszError::NotImplemented("decompress"))
+pub fn decompress(request: &DecompressRequest) -> Result<OperationReport, NszError> {
+    ops::decompress::run(request)
 }
 
-pub fn verify(_: &VerifyRequest) -> Result<VerifyReport, NszError> {
-    Err(NszError::NotImplemented("verify"))
+pub fn verify(request: &VerifyRequest) -> Result<VerifyReport, NszError> {
+    ops::verify::run(request)
 }
 
 pub fn extract(_: &ExtractRequest) -> Result<OperationReport, NszError> {

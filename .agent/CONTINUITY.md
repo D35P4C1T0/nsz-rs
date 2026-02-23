@@ -6,18 +6,18 @@ Add dated entries with provenance tags per AGENTS.md: [USER], [CODE], [TOOL], [A
 ## Snapshot
 
 Goal: 2026-02-22 [USER] Reimplement Python `nsz` in native safe Rust with total feature parity.
-Now: 2026-02-22 [CODE] Foundation implementation through Task 8 is complete with passing tests.
-Next: 2026-02-22 [ASSUMPTION] Begin operation-path implementation (Task 9 onward: decompress/verify first).
-Open Questions: 2026-02-22 [UNCONFIRMED] Parity harness mode default (fail-fast vs collect-all mismatch report).
+Now: 2026-02-22 [CODE] Task 9 started with `decompress`/`verify` operation wiring and parity test scaffold.
+Next: 2026-02-22 [ASSUMPTION] Continue Task 9 by replacing baseline-adapter behavior with native Rust logic and unblocking heavy corpus parity execution.
+Open Questions: 2026-02-22 [UNCONFIRMED] Python baseline environment in this machine lacks `pycryptodome` (`Crypto` module), blocking heavy parity runs.
 
 ## Done (recent)
-- 2026-02-22 [CODE] Completed Task 8: added `ncz::header::BlockHeader` deterministic binary roundtrip (`ncz_block_header_binary_layout_matches_python`).
-- 2026-02-22 [CODE] Completed Task 7: added minimal `container::pfs0` parser/serializer and stable roundtrip test.
-- 2026-02-22 [CODE] Completed Task 6: added `crypto::keys::load_from_str` required-key validation.
-- 2026-02-22 [CODE] Completed Task 5: added `fs_ops` path/policy logic with duplicate rejection test.
-- 2026-02-22 [CODE] Previously completed Tasks 1-4 (crate scaffold, baseline version probe, config defaults, parity mismatch error).
-- 2026-02-22 [TOOL] Full suite currently passes via `cargo fmt --all && cargo test -q` (8 integration tests).
-- 2026-02-22 [CODE] Updated ExecPlan progress and outcomes after completing Task 8.
+- 2026-02-22 [USER] Chose parity harness default mode `fail-fast`.
+- 2026-02-22 [CODE] Started Task 9: added `src/ops/decompress.rs`, `src/ops/verify.rs`, and wired `lib.rs` operations.
+- 2026-02-22 [CODE] Added real-corpus parity test scaffold `tests/decompress_verify_parity.rs` (runs when `NSZ_RUN_HEAVY_PARITY=1`).
+- 2026-02-22 [TOOL] Heavy parity run reproduced dependency blocker (`ModuleNotFoundError: No module named 'Crypto'`) from Python baseline.
+- 2026-02-22 [TOOL] Current default suite still passes via `cargo fmt --all && cargo test -q`.
+- 2026-02-22 [CODE] Completed foundation Tasks 1-8 (scaffold, defaults/errors, fs/crypto, container/ncz primitives) and committed checkpoints.
+- 2026-02-22 [CODE] Updated ExecPlan progress/discoveries with Task 9 status and blocker details.
 
 ## Working set
 - /home/matteo/Documents/prog/rust/nsz-rs/.agent/CONTINUITY.md
@@ -25,11 +25,11 @@ Open Questions: 2026-02-22 [UNCONFIRMED] Parity harness mode default (fail-fast 
 - /home/matteo/Documents/prog/rust/nsz-rs/.agent/execplans/active/EP-2026-02-22__nsz-rs-parity.md
 - /home/matteo/Documents/prog/rust/nsz-rs/src/lib.rs
 - /home/matteo/Documents/prog/rust/nsz-rs/src/parity/python_runner.rs
+- /home/matteo/Documents/prog/rust/nsz-rs/src/ops/decompress.rs
+- /home/matteo/Documents/prog/rust/nsz-rs/src/ops/verify.rs
 - /home/matteo/Documents/prog/rust/nsz-rs/src/container/pfs0.rs
 - /home/matteo/Documents/prog/rust/nsz-rs/src/ncz/header.rs
-- /home/matteo/Documents/prog/rust/nsz-rs/tests/fs_policy.rs
-- /home/matteo/Documents/prog/rust/nsz-rs/tests/keys_loading.rs
-- /home/matteo/Documents/prog/rust/nsz-rs/tests/container_roundtrip.rs
+- /home/matteo/Documents/prog/rust/nsz-rs/tests/decompress_verify_parity.rs
 - /home/matteo/Documents/prog/rust/nsz-rs/tests/ncz_header_block.rs
 - /home/matteo/Documents/switch_games/Bad Cheese [NSP]
 
@@ -46,6 +46,7 @@ Open Questions: 2026-02-22 [UNCONFIRMED] Parity harness mode default (fail-fast 
 - D010 ACTIVE: 2026-02-22 [USER] Determinism section approved: Python-order behavior clone, explicit byte-affecting config surface, incremental corpus parity harness with byte-level diff reporting.
 - D011 ACTIVE: 2026-02-22 [USER] Error/API section approved: typed `NszError`, structured results, and explicit parity mismatch reporting.
 - D012 ACTIVE: 2026-02-22 [USER] Testing section approved: layered tests plus Python-vs-Rust byte-parity gates on canonical corpus.
+- D013 ACTIVE: 2026-02-22 [USER] Parity harness default mode is fail-fast.
 
 ## Receipts
 - 2026-02-22 [TOOL] `ls -la .agent` in `nsz-rs`: continuity/plans/index present.
@@ -64,3 +65,5 @@ Open Questions: 2026-02-22 [UNCONFIRMED] Parity harness mode default (fail-fast 
 - 2026-02-22 [TOOL] `cargo test -q` currently passes all defined tests.
 - 2026-02-22 [TOOL] `cargo test file_policy_rejects_duplicate_without_overwrite -q`, `cargo test key_loader_checks_required_entries -q`, `cargo test pfs0_header_roundtrip_is_stable -q`, `cargo test ncz_block_header_binary_layout_matches_python -q` all pass.
 - 2026-02-22 [TOOL] `cargo fmt --all && cargo test -q` passes after Task 8 implementation.
+- 2026-02-22 [TOOL] `NSZ_RUN_HEAVY_PARITY=1 cargo test decompress_verify_matches_python_for_fixture -- --nocapture` fails in baseline Python with missing `Crypto` module (`pycryptodome` not installed).
+- 2026-02-22 [TOOL] `cargo test decompress_verify_matches_python_for_fixture -q` passes in default mode (heavy parity env flag not set).

@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 #[derive(Debug, Clone)]
 pub struct CompressRequest {
     pub level: i32,
@@ -18,10 +20,19 @@ impl Default for CompressRequest {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct DecompressRequest;
+pub struct DecompressRequest {
+    pub files: Vec<PathBuf>,
+    pub output_dir: Option<PathBuf>,
+    pub fix_padding: bool,
+    pub python_repo_root: Option<PathBuf>,
+}
 
 #[derive(Debug, Clone, Default)]
-pub struct VerifyRequest;
+pub struct VerifyRequest {
+    pub files: Vec<PathBuf>,
+    pub fix_padding: bool,
+    pub python_repo_root: Option<PathBuf>,
+}
 
 #[derive(Debug, Clone, Default)]
 pub struct ExtractRequest;

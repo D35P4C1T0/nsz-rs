@@ -10,6 +10,12 @@ pub enum NszError {
     MissingRequiredKey { key: String },
     #[error("container format error: {message}")]
     ContainerFormat { message: String },
+    #[error("external command failed: {command} (status: {status}) {stderr}")]
+    ExternalCommand {
+        command: String,
+        status: i32,
+        stderr: String,
+    },
     #[error(
         "parity mismatch in {operation}: expected sha256 {expected_sha256}, actual sha256 {actual_sha256}, first diff offset {first_diff_offset}"
     )]
