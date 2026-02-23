@@ -28,6 +28,7 @@ After this change, the repository will provide a native safe Rust library that r
 - [x] (2026-02-23T00:12Z) Unblocked heavy Task 9 parity execution by wiring local baseline venv + key provisioning and passing real-corpus fail-fast parity test.
 - [ ] (2026-02-23T00:18Z) Began native Task 9 replacement work by adding NCZ section parsing, decompressed-size computation, and a no-crypto zstd decompression path (`ncz::decompress`) with passing unit tests.
 - [ ] (2026-02-23T00:26Z) Added native `.ncz` operation dispatch in `ops::decompress` with dedicated integration test proving no Python dependency for `.ncz` inputs.
+- [ ] (2026-02-23T00:36Z) Extended native NCZ path with AES-CTR handling for crypto types 3/4 and passing crypto roundtrip test; heavy fail-fast parity remains green.
 - [ ] Implement operations in parity-first order: decompress/verify, then compress, then extract/create/titlekeys/undupe.
 - [ ] Implement corpus-wide parity harness and docs for adding new samples.
 - [ ] Run formatting, lint, tests, and parity gates; fix regressions.
@@ -47,8 +48,10 @@ After this change, the repository will provide a native safe Rust library that r
   Evidence: Escalated heavy run fails with `Exception: Could not load keys file.` and no `prod.keys`/`keys.txt` found in expected paths.
 - Observation: User-provided workspace-root `keys.txt` works for heavy parity when test provisions temporary `HOME/.switch/keys.txt`.
   Evidence: `NSZ_RUN_HEAVY_PARITY=1 cargo test decompress_verify_matches_python_for_fixture -- --nocapture` passed after key-home provisioning update.
-- Observation: Native NCZ decompression path currently supports only non-crypto sections and non-`NCZBLOCK` streams.
-  Evidence: `ncz_native_decompress_roundtrip_no_crypto` passes; code explicitly returns `UnsupportedFeature` for crypto types 3/4 and `NCZBLOCK`.
+- Observation: Native NCZ decompression path initially supported only non-crypto sections and non-`NCZBLOCK` streams. SUPERSEDED by subsequent AES-CTR support note.
+  Evidence: Early `ncz_native_decompress_roundtrip_no_crypto` passed before crypto support landed.
+- Observation: Native NCZ decompression now supports crypto types 3/4 with AES-CTR; `NCZBLOCK` remains unsupported.
+  Evidence: `ncz_native_decompress_roundtrip_crypto_type3` passes and `UnsupportedFeature` guard remains only for `NCZBLOCK` and unknown crypto types.
 
 ## Decision Log
 
@@ -191,3 +194,4 @@ Core dependencies to introduce:
 - (2026-02-23) Updated progress after starting native NCZ decompression metadata implementation for Task 9 replacement path.
 - (2026-02-23) Expanded native NCZ replacement path to include no-crypto zstd stream decompression with explicit unsupported-feature guards.
 - (2026-02-23) Extended Task 9 native replacement by routing `.ncz` operation calls through Rust decompression path with new integration coverage.
+- (2026-02-23) Extended native NCZ replacement with AES-CTR crypto handling for types 3/4 and validated heavy fail-fast parity still passes.

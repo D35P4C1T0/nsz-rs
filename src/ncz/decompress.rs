@@ -1,4 +1,6 @@
 use crate::error::NszError;
+use aes::Aes128;
+use ctr::cipher::{KeyIvInit, StreamCipher, StreamCipherSeek};
 
 const UNCOMPRESSABLE_HEADER_SIZE: usize = 0x4000;
 
@@ -27,12 +29,9 @@ pub fn decompressed_nca_size_from_bytes(data: &[u8]) -> Result<u64, NszError> {
 pub fn decompress_ncz_to_vec(data: &[u8]) -> Result<Vec<u8>, NszError> {
     let (sections, stream_offset) = parse_sections_with_end(data)?;
 
-    if sections
-        .iter()
-        .any(|s| s.crypto_type == 3 || s.crypto_type == 4)
-    {
+    if sections.iter().any(|s| !matches!(s.crypto_type, 0 | 3 | 4)) {
         return Err(NszError::UnsupportedFeature {
-            feature: "NCZ AES-CTR re-encryption for crypto_type 3/4".to_string(),
+            feature: "NCZ crypto type other than 0/3/4".to_string(),
         });
     }
 
@@ -76,7 +75,17 @@ pub fn decompress_ncz_to_vec(data: &[u8]) -> Result<Vec<u8>, NszError> {
                 message: "NCZ stream shorter than declared sections".to_string(),
             });
         }
-        output.extend_from_slice(&decompressed[read_cursor..end]);
+        let mut chunk = decompressed[read_cursor..end].to_vec();
+        if matches!(section.crypto_type, 3 | 4) {
+            apply_aes_ctr(
+                &mut chunk,
+                &section.crypto_key,
+                &section.crypto_counter,
+                section.offset as u128,
+            );
+        }
+
+        output.extend_from_slice(&chunk);
         read_cursor = end;
     }
 
@@ -131,4 +140,11 @@ fn parse_sections_with_end(data: &[u8]) -> Result<(Vec<NczSection>, usize), NszE
     }
 
     Ok((sections, cursor))
+}
+
+fn apply_aes_ctr(buf: &mut [u8], key: &[u8; 16], counter: &[u8; 16], offset: u128) {
+    type AesCtr = ctr::Ctr128BE<Aes128>;
+    let mut cipher = AesCtr::new(key.into(), counter.into());
+    cipher.seek(offset);
+    cipher.apply_keystream(buf);
 }
