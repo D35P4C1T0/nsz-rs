@@ -2,7 +2,9 @@ use sha2::{Digest, Sha256};
 use std::path::Path;
 
 use crate::config::VerifyRequest;
+use crate::container::hfs0::Hfs0Archive;
 use crate::container::nsp::NspArchive;
+use crate::container::xci::XciArchive;
 use crate::error::NszError;
 use crate::ops::VerifyReport;
 use crate::parity::python_runner::{resolve_python_repo_root, run_nsz_cli};
@@ -37,6 +39,18 @@ pub fn run(request: &VerifyRequest) -> Result<VerifyReport, NszError> {
             Some("nsz") => {
                 let input = std::fs::read(file)?;
                 verify_nsp_like_container(&input, true)?;
+                verified_files.push(file.clone());
+                continue;
+            }
+            Some("xci") => {
+                let input = std::fs::read(file)?;
+                verify_xci_like_container(&input, false)?;
+                verified_files.push(file.clone());
+                continue;
+            }
+            Some("xcz") => {
+                let input = std::fs::read(file)?;
+                verify_xci_like_container(&input, true)?;
                 verified_files.push(file.clone());
                 continue;
             }
@@ -76,6 +90,49 @@ fn verify_nsp_like_container(data: &[u8], compressed: bool) -> Result<(), NszErr
         if compressed && ext.eq_ignore_ascii_case("ncz") {
             let bytes = archive.entry_bytes(data, entry);
             let decompressed = crate::ncz::decompress::decompress_ncz_to_vec(bytes)?;
+            verify_hash_against_entry_name(&entry.name, &decompressed)?;
+        }
+    }
+    Ok(())
+}
+
+fn verify_xci_like_container(data: &[u8], compressed: bool) -> Result<(), NszError> {
+    let xci = XciArchive::from_bytes(data)?;
+    let root_bytes = xci.root_hfs0_bytes(data)?;
+    let root = xci.root_hfs0_archive(data)?;
+
+    for partition_entry in root.entries() {
+        let partition_bytes = root.entry_bytes(root_bytes, partition_entry);
+        let partition = Hfs0Archive::from_bytes(partition_bytes)?;
+        verify_hfs0_container(&partition, partition_bytes, compressed)?;
+    }
+
+    Ok(())
+}
+
+fn verify_hfs0_container(
+    archive: &Hfs0Archive,
+    bytes: &[u8],
+    compressed: bool,
+) -> Result<(), NszError> {
+    for entry in archive.entries() {
+        let entry_path = Path::new(&entry.name);
+        let ext = entry_path
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .unwrap_or_default();
+
+        if ext.eq_ignore_ascii_case("nca") {
+            if is_cnmt_nca_name(entry_path) {
+                continue;
+            }
+            verify_hash_against_entry_name(&entry.name, archive.entry_bytes(bytes, entry))?;
+            continue;
+        }
+
+        if compressed && ext.eq_ignore_ascii_case("ncz") {
+            let decompressed =
+                crate::ncz::decompress::decompress_ncz_to_vec(archive.entry_bytes(bytes, entry))?;
             verify_hash_against_entry_name(&entry.name, &decompressed)?;
         }
     }

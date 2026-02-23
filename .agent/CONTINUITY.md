@@ -6,23 +6,25 @@ Add dated entries with provenance tags per AGENTS.md: [USER], [CODE], [TOOL], [A
 ## Snapshot
 
 Goal: 2026-02-22 [USER] Reimplement Python `nsz` in native safe Rust with total feature parity.
-Now: 2026-02-23 [CODE] Native paths now cover `.nca`/`.ncz`/`.nsp`/`.nsz` verify plus `.ncz`/`.nsz` decompress; heavy parity supports optional fixture-limited fast mode.
+Now: 2026-02-23 [CODE] Native verify now covers `.nca`/`.ncz`/`.nsp`/`.nsz`/`.xci`/`.xcz`; native decompress covers `.ncz`/`.nsz`; heavy parity fast/full modes are both validated.
 Next: 2026-02-23 [ASSUMPTION] Continue Task 9 by reducing fallback for XCI/XCZ-related paths and filling remaining operation parity gaps.
-Open Questions: 2026-02-23 [UNCONFIRMED] Need finalized default policy for heavy parity mode selection (`full` vs `fast`) in automated runs.
+Open Questions: 2026-02-23 [UNCONFIRMED] Need finalized default policy for heavy parity mode selection (`full` vs `fast`) in automated runs and whether `.xcz` native decompression will be prioritized next.
 
 ## Done (recent)
-- 2026-02-23 [CODE] Added native standalone `.nca` verify path in `ops::verify` with `.cnmt.nca` hash-skip parity semantics.
-- 2026-02-23 [CODE] Added tests `verify_uses_native_path_for_nca_inputs` and `verify_skips_cnmt_nca_hash_check`.
-- 2026-02-23 [CODE] Added heavy parity fixture controls in `tests/decompress_verify_parity.rs`: `NSZ_HEAVY_PARITY_MODE=fast|full` and `NSZ_HEAVY_PARITY_MAX_FILES`.
-- 2026-02-23 [TOOL] New `.nca` native-path tests pass with invalid Python repo root (proves no Python fallback).
-- 2026-02-23 [TOOL] Validation gates pass after `.nca` + parity-mode updates: `cargo fmt --all && cargo test -q && cargo clippy --all-targets --all-features -- -D warnings`.
-- 2026-02-23 [TOOL] Heavy parity fast-mode command was started escalated but user interrupted before completion (`turn_aborted`).
-- 2026-02-23 [TOOL] Confirmed no lingering heavy parity process after interruption (`ps` check clean).
+- 2026-02-23 [CODE] Added native `HFS0` parser (`container::hfs0`) and native `XCI` root-header/HFS0 locator parser (`container::xci`).
+- 2026-02-23 [CODE] Added native `.xci/.xcz` verify branches in `ops::verify`, including partition traversal and `.ncz` verify inside HFS0 partitions.
+- 2026-02-23 [CODE] Added synthetic no-Python integration tests `verify_uses_native_path_for_xci_inputs` and `verify_uses_native_path_for_xcz_inputs`.
+- 2026-02-23 [TOOL] New `.xci/.xcz` native-path tests pass with invalid Python repo root (proves fallback removal for verify path).
+- 2026-02-23 [TOOL] Validation gates pass after XCI/XCZ verify updates: `cargo fmt --all && cargo test -q && cargo clippy --all-targets --all-features -- -D warnings`.
+- 2026-02-23 [TOOL] Fast heavy parity mode completed and passed: `NSZ_RUN_HEAVY_PARITY=1 NSZ_HEAVY_PARITY_MODE=fast cargo test decompress_verify_matches_python_for_fixture -- --nocapture` (escalated), duration `507.12s`.
+- 2026-02-23 [TOOL] Full heavy parity remains previously validated at `1093.75s` under same fixture root.
 
 ## Working set
 - /home/matteo/Documents/prog/rust/nsz-rs/.agent/CONTINUITY.md
 - /home/matteo/Documents/prog/rust/nsz-rs/.agent/execplans/INDEX.md
 - /home/matteo/Documents/prog/rust/nsz-rs/.agent/execplans/active/EP-2026-02-22__nsz-rs-parity.md
+- /home/matteo/Documents/prog/rust/nsz-rs/src/container/hfs0.rs
+- /home/matteo/Documents/prog/rust/nsz-rs/src/container/xci.rs
 - /home/matteo/Documents/prog/rust/nsz-rs/src/container/nsp.rs
 - /home/matteo/Documents/prog/rust/nsz-rs/src/ops/decompress.rs
 - /home/matteo/Documents/prog/rust/nsz-rs/src/ops/verify.rs
@@ -32,6 +34,7 @@ Open Questions: 2026-02-23 [UNCONFIRMED] Need finalized default policy for heavy
 - /home/matteo/Documents/prog/rust/nsz-rs/tests/decompress_native_nsz_op.rs
 - /home/matteo/Documents/prog/rust/nsz-rs/tests/verify_native_nca_op.rs
 - /home/matteo/Documents/prog/rust/nsz-rs/tests/verify_native_nsp_nsz_op.rs
+- /home/matteo/Documents/prog/rust/nsz-rs/tests/verify_native_xci_xcz_op.rs
 - /home/matteo/Documents/prog/rust/nsz-rs/tests/verify_native_ncz_op.rs
 - /home/matteo/Documents/switch_games/Bad Cheese [NSP]
 
@@ -76,3 +79,5 @@ Open Questions: 2026-02-23 [UNCONFIRMED] Need finalized default policy for heavy
 - 2026-02-23 [TOOL] Added passing native `.nca` verify coverage: `cargo test verify_uses_native_path_for_nca_inputs -- --nocapture` and `cargo test verify_skips_cnmt_nca_hash_check -- --nocapture`.
 - 2026-02-23 [TOOL] Added optional heavy parity fixture limiter controls (`NSZ_HEAVY_PARITY_MODE`, `NSZ_HEAVY_PARITY_MAX_FILES`) and validated compile/test gates.
 - 2026-02-23 [TOOL] Escalated fast heavy parity run was interrupted by user before completion; no post-abort parity process remained active.
+- 2026-02-23 [TOOL] Fast heavy parity completed successfully after rerun: `NSZ_RUN_HEAVY_PARITY=1 NSZ_HEAVY_PARITY_MODE=fast cargo test decompress_verify_matches_python_for_fixture -- --nocapture` (escalated), duration `507.12s`.
+- 2026-02-23 [TOOL] Added and passed native XCI/XCZ verify coverage: `cargo test verify_uses_native_path_for_xci_inputs -- --nocapture` and `cargo test verify_uses_native_path_for_xcz_inputs -- --nocapture`.

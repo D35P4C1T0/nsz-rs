@@ -35,6 +35,8 @@ After this change, the repository will provide a native safe Rust library that r
 - [x] (2026-02-23T02:35Z) Expanded heavy corpus parity fixture loop to discovered `.nsz` and `.nsp` samples; matched Python behavior for non-`3/4` NCZ crypto types by passthrough.
 - [x] (2026-02-23T03:10Z) Added native standalone `.nca` verify path with `.cnmt.nca` skip behavior and dedicated no-Python integration coverage.
 - [x] (2026-02-23T03:15Z) Added optional heavy parity fixture limit controls (`NSZ_HEAVY_PARITY_MODE`, `NSZ_HEAVY_PARITY_MAX_FILES`) to support faster smoke parity loops.
+- [x] (2026-02-23T03:28Z) Added native `.xci/.xcz` verify traversal via new HFS0/XCI parsers with synthetic no-Python integration tests.
+- [x] (2026-02-23T03:40Z) Completed fast heavy parity mode run and captured runtime receipt (`507.12s`) while retaining full-mode receipt (`1093.75s`).
 - [ ] Implement operations in parity-first order: decompress/verify, then compress, then extract/create/titlekeys/undupe.
 - [ ] Implement corpus-wide parity harness and docs for adding new samples.
 - [x] (2026-02-23T02:40Z) Ran verification gates for this slice (`cargo fmt --all`, `cargo test -q`, `cargo clippy --all-targets --all-features -- -D warnings`, heavy parity) and resolved regressions.
@@ -70,6 +72,10 @@ After this change, the repository will provide a native safe Rust library that r
   Evidence: `verify_uses_native_path_for_nca_inputs` and `verify_skips_cnmt_nca_hash_check` pass using invalid Python repo paths.
 - Observation: Fast heavy parity mode wiring compiles and regular gates pass, but end-to-end fast run receipt is currently interrupted by user action.
   Evidence: Escalated `NSZ_RUN_HEAVY_PARITY=1 NSZ_HEAVY_PARITY_MODE=fast ...` run started successfully and was interrupted by `turn_aborted`.
+- Observation: Fast heavy parity mode now has completed runtime evidence and meaningfully reduces wall time vs full mode on current corpus.
+  Evidence: Fast-mode run passes in `507.12s`; full-mode run passes in `1093.75s`.
+- Observation: Native verify fallback surface is reduced further by handling `.xci/.xcz` through HFS0/XCI container traversal.
+  Evidence: `verify_uses_native_path_for_xci_inputs` and `verify_uses_native_path_for_xcz_inputs` pass with invalid Python repo paths.
 
 ## Decision Log
 
@@ -91,7 +97,7 @@ After this change, the repository will provide a native safe Rust library that r
 
 ## Outcomes & Retrospective
 
-Current status: Task 9 native replacement now covers `.ncz` and `.nsz` decompression plus `.ncz`/`.nsp`/`.nsz` verify flows without Python fallback, backed by synthetic native-path tests and expanded corpus parity checks. Remaining work is native handling for XCI/XCZ and other operation surfaces (`compress`, `extract`, `create`, `titlekeys`, `undupe`) plus corpus-gate runtime shaping/documentation.
+Current status: Task 9 native replacement now covers `.ncz`/`.nsz` decompression and `.nca`/`.ncz`/`.nsp`/`.nsz`/`.xci`/`.xcz` verify flows without Python fallback, backed by synthetic native-path tests and expanded corpus parity checks. Remaining work is native `.xcz` decompression and the other operation surfaces (`compress`, `extract`, `create`, `titlekeys`, `undupe`) plus corpus-gate policy/documentation.
 
 ## Context and Orientation
 
@@ -219,3 +225,5 @@ Core dependencies to introduce:
 - (2026-02-23) Expanded heavy parity fixture coverage to discovered `.nsz` and `.nsp` corpus files and aligned NCZ crypto-type passthrough semantics with Python.
 - (2026-02-23) Added native standalone `.nca` verify path plus `.cnmt.nca` skip handling and new no-Python tests.
 - (2026-02-23) Added optional heavy parity fast-mode fixture limiting controls; full end-to-end fast-mode timing remains UNCONFIRMED due user interruption.
+- (2026-02-23) Added native `.xci/.xcz` verify path using new HFS0/XCI container parsing with no-Python tests.
+- (2026-02-23) Completed fast heavy parity mode run and recorded runtime evidence versus full mode.
