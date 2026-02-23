@@ -2,7 +2,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::config::DecompressRequest;
+use crate::container::hfs0::{encode_hfs0, Hfs0Archive};
 use crate::container::nsp::{encode_pfs0, NspArchive};
+use crate::container::xci::{encode_xci_like, XciArchive};
 use crate::error::NszError;
 use crate::ops::OperationReport;
 use crate::parity::python_runner::{resolve_python_repo_root, run_nsz_cli};
@@ -35,6 +37,18 @@ pub fn run(request: &DecompressRequest) -> Result<OperationReport, NszError> {
             Some("nsz") => {
                 let input = fs::read(file)?;
                 let output = decompress_nsz_to_nsp(&input)?;
+                let out_file = expected_decompressed_output(file, &out_dir).ok_or_else(|| {
+                    NszError::ContainerFormat {
+                        message: format!("could not resolve output path for {}", file.display()),
+                    }
+                })?;
+                fs::write(&out_file, output)?;
+                processed_files.push(out_file);
+                continue;
+            }
+            Some("xcz") => {
+                let input = fs::read(file)?;
+                let output = decompress_xcz_to_xci(&input)?;
                 let out_file = expected_decompressed_output(file, &out_dir).ok_or_else(|| {
                     NszError::ContainerFormat {
                         message: format!("could not resolve output path for {}", file.display()),
@@ -96,6 +110,51 @@ fn decompress_nsz_to_nsp(data: &[u8]) -> Result<Vec<u8>, NszError> {
         archive.first_file_offset(),
         archive.string_table_size(),
     )
+}
+
+fn decompress_xcz_to_xci(data: &[u8]) -> Result<Vec<u8>, NszError> {
+    let xci = XciArchive::from_bytes(data)?;
+    let root_bytes = xci.root_hfs0_bytes(data)?;
+    let root = xci.root_hfs0_archive(data)?;
+
+    let mut root_output_entries = Vec::with_capacity(root.entries().len());
+    for partition in root.entries() {
+        let partition_bytes = root.entry_bytes(root_bytes, partition);
+        let partition_archive = Hfs0Archive::from_bytes(partition_bytes)?;
+
+        let mut partition_output_entries = Vec::with_capacity(partition_archive.entries().len());
+        for entry in partition_archive.entries() {
+            let entry_bytes = partition_archive.entry_bytes(partition_bytes, entry);
+            if entry.name.to_ascii_lowercase().ends_with(".ncz") {
+                let mut new_name = PathBuf::from(&entry.name);
+                new_name.set_extension("nca");
+                let name = new_name
+                    .to_str()
+                    .ok_or_else(|| NszError::ContainerFormat {
+                        message: format!("invalid UTF-8 output name for {}", entry.name),
+                    })?
+                    .to_string();
+                let output = crate::ncz::decompress::decompress_ncz_to_vec(entry_bytes)?;
+                partition_output_entries.push((name, output));
+            } else {
+                partition_output_entries.push((entry.name.clone(), entry_bytes.to_vec()));
+            }
+        }
+
+        let partition_output = encode_hfs0(
+            &partition_output_entries,
+            partition_archive.first_file_offset(),
+            partition_archive.string_table_size(),
+        )?;
+        root_output_entries.push((partition.name.clone(), partition_output));
+    }
+
+    let root_output = encode_hfs0(
+        &root_output_entries,
+        root.first_file_offset(),
+        root.string_table_size(),
+    )?;
+    encode_xci_like(data, &xci, &root_output)
 }
 
 fn normalized_extension(path: &Path) -> Option<&str> {

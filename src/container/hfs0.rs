@@ -14,6 +14,7 @@ pub struct Hfs0Entry {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Hfs0Archive {
     entries: Vec<Hfs0Entry>,
+    string_table_size: u32,
     data_start: u64,
 }
 
@@ -142,6 +143,7 @@ impl Hfs0Archive {
 
         Ok(Self {
             entries,
+            string_table_size: string_table_size as u32,
             data_start,
         })
     }
@@ -150,9 +152,93 @@ impl Hfs0Archive {
         &self.entries
     }
 
+    pub fn string_table_size(&self) -> u32 {
+        self.string_table_size
+    }
+
+    pub fn first_file_offset(&self) -> u64 {
+        self.entries
+            .iter()
+            .map(|entry| self.data_start + entry.offset)
+            .min()
+            .unwrap_or(self.data_start)
+    }
+
     pub fn entry_bytes<'a>(&self, data: &'a [u8], entry: &Hfs0Entry) -> &'a [u8] {
         let start = (self.data_start + entry.offset) as usize;
         let end = start + entry.size as usize;
         &data[start..end]
     }
+}
+
+pub fn encode_hfs0(
+    entries: &[(String, Vec<u8>)],
+    first_file_offset: u64,
+    base_string_table_size: u32,
+) -> Result<Vec<u8>, NszError> {
+    let mut string_table = Vec::new();
+    let mut string_offsets = Vec::with_capacity(entries.len());
+    for (name, _) in entries {
+        string_offsets.push(string_table.len() as u32);
+        string_table.extend_from_slice(name.as_bytes());
+        string_table.push(0);
+    }
+
+    let string_table_size = (base_string_table_size as usize).max(string_table.len());
+    let header_size =
+        16usize
+            .checked_add(entries.len().checked_mul(0x40).ok_or_else(|| {
+                NszError::ContainerFormat {
+                    message: "HFS0 entry table size overflow".to_string(),
+                }
+            })?)
+            .and_then(|v| v.checked_add(string_table_size))
+            .ok_or_else(|| NszError::ContainerFormat {
+                message: "HFS0 output header size overflow".to_string(),
+            })?;
+
+    if first_file_offset < header_size as u64 {
+        return Err(NszError::ContainerFormat {
+            message: "HFS0 first file offset is smaller than header size".to_string(),
+        });
+    }
+
+    let mut header = Vec::with_capacity(header_size);
+    header.extend_from_slice(b"HFS0");
+    header.extend_from_slice(&(entries.len() as u32).to_le_bytes());
+    header.extend_from_slice(&(string_table_size as u32).to_le_bytes());
+    header.extend_from_slice(&0u32.to_le_bytes());
+
+    let mut abs_offset = first_file_offset;
+    for ((_, data), string_offset) in entries.iter().zip(string_offsets.iter()) {
+        let rel_offset = abs_offset.checked_sub(header_size as u64).ok_or_else(|| {
+            NszError::ContainerFormat {
+                message: "HFS0 relative offset underflow".to_string(),
+            }
+        })?;
+
+        header.extend_from_slice(&rel_offset.to_le_bytes());
+        header.extend_from_slice(&(data.len() as u64).to_le_bytes());
+        header.extend_from_slice(&string_offset.to_le_bytes());
+        header.extend_from_slice(&0u32.to_le_bytes());
+        header.extend_from_slice(&0u64.to_le_bytes());
+        header.extend_from_slice(&[0u8; 32]);
+
+        abs_offset =
+            abs_offset
+                .checked_add(data.len() as u64)
+                .ok_or_else(|| NszError::ContainerFormat {
+                    message: "HFS0 absolute offset overflow".to_string(),
+                })?;
+    }
+
+    header.extend_from_slice(&string_table);
+    header.resize(header_size, 0);
+
+    let mut out = header;
+    out.resize(first_file_offset as usize, 0);
+    for (_, data) in entries {
+        out.extend_from_slice(data);
+    }
+    Ok(out)
 }

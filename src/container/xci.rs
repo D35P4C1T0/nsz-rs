@@ -44,11 +44,6 @@ impl XciArchive {
                 message: "XCI HFS0 offset outside file".to_string(),
             });
         }
-        if hfs0_header_size > 0 && hfs0_abs_offset + hfs0_header_size > data.len() as u64 {
-            return Err(NszError::ContainerFormat {
-                message: "XCI HFS0 header range outside file".to_string(),
-            });
-        }
 
         Ok(Self {
             header_offset,
@@ -76,4 +71,25 @@ impl XciArchive {
     pub fn root_hfs0_archive(&self, data: &[u8]) -> Result<Hfs0Archive, NszError> {
         Hfs0Archive::from_bytes(self.root_hfs0_bytes(data)?)
     }
+
+    pub fn root_hfs0_absolute_offset(&self) -> Result<u64, NszError> {
+        self.header_offset
+            .checked_add(self.hfs0_offset)
+            .ok_or_else(|| NszError::ContainerFormat {
+                message: "XCI root HFS0 absolute offset overflow".to_string(),
+            })
+    }
+}
+
+pub fn encode_xci_like(
+    input: &[u8],
+    archive: &XciArchive,
+    root_hfs0: &[u8],
+) -> Result<Vec<u8>, NszError> {
+    let root_offset = archive.root_hfs0_absolute_offset()? as usize;
+    let prefix_len = input.len().min(0x200);
+    let mut out = input[..prefix_len].to_vec();
+    out.resize(root_offset, 0);
+    out.extend_from_slice(root_hfs0);
+    Ok(out)
 }

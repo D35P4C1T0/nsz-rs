@@ -36,8 +36,10 @@ After this change, the repository will provide a native safe Rust library that r
 - [x] (2026-02-23T03:10Z) Added native standalone `.nca` verify path with `.cnmt.nca` skip behavior and dedicated no-Python integration coverage.
 - [x] (2026-02-23T03:15Z) Added optional heavy parity fixture limit controls (`NSZ_HEAVY_PARITY_MODE`, `NSZ_HEAVY_PARITY_MAX_FILES`) to support faster smoke parity loops.
 - [x] (2026-02-23T03:28Z) Added native `.xci/.xcz` verify traversal via new HFS0/XCI parsers with synthetic no-Python integration tests.
+- [x] (2026-02-23T04:05Z) Added native `.xcz -> .xci` decompression path by parsing/re-encoding XCI/HFS0 structures and rewriting `.ncz` entries to `.nca` without Python fallback.
 - [x] (2026-02-23T03:40Z) Completed fast heavy parity mode run and captured runtime receipt (`507.12s`) while retaining full-mode receipt (`1093.75s`).
-- [ ] Implement operations in parity-first order: decompress/verify, then compress, then extract/create/titlekeys/undupe.
+- [x] (2026-02-23T04:05Z) Completed parity-first `decompress`/`verify` native fallback removal for covered formats (`.nca`/`.ncz`/`.nsp`/`.nsz`/`.xci`/`.xcz`).
+- [ ] Implement remaining operations in parity-first order: `compress`, then `extract`/`create`/`titlekeys`/`undupe`.
 - [ ] Implement corpus-wide parity harness and docs for adding new samples.
 - [x] (2026-02-23T02:40Z) Ran verification gates for this slice (`cargo fmt --all`, `cargo test -q`, `cargo clippy --all-targets --all-features -- -D warnings`, heavy parity) and resolved regressions.
 - [ ] Update plan sections and archive flow when complete.
@@ -76,6 +78,8 @@ After this change, the repository will provide a native safe Rust library that r
   Evidence: Fast-mode run passes in `507.12s`; full-mode run passes in `1093.75s`.
 - Observation: Native verify fallback surface is reduced further by handling `.xci/.xcz` through HFS0/XCI container traversal.
   Evidence: `verify_uses_native_path_for_xci_inputs` and `verify_uses_native_path_for_xcz_inputs` pass with invalid Python repo paths.
+- Observation: Native `.xcz` decompression can be implemented by rebuilding HFS0/XCI container bytes while preserving upstream offsets and string-table sizing; synthetic no-Python coverage confirms correctness of this route.
+  Evidence: `decompress_uses_native_path_for_xcz_inputs` passes with invalid Python repo path; `cargo fmt --all && cargo test -q && cargo clippy --all-targets --all-features -- -D warnings` stays green.
 
 ## Decision Log
 
@@ -97,7 +101,7 @@ After this change, the repository will provide a native safe Rust library that r
 
 ## Outcomes & Retrospective
 
-Current status: Task 9 native replacement now covers `.ncz`/`.nsz` decompression and `.nca`/`.ncz`/`.nsp`/`.nsz`/`.xci`/`.xcz` verify flows without Python fallback, backed by synthetic native-path tests and expanded corpus parity checks. Remaining work is native `.xcz` decompression and the other operation surfaces (`compress`, `extract`, `create`, `titlekeys`, `undupe`) plus corpus-gate policy/documentation.
+Current status: Task 9 native replacement now covers `.ncz`/`.nsz`/`.xcz` decompression and `.nca`/`.ncz`/`.nsp`/`.nsz`/`.xci`/`.xcz` verify flows without Python fallback, backed by synthetic native-path tests and expanded corpus parity checks. Remaining work is the other operation surfaces (`compress`, `extract`, `create`, `titlekeys`, `undupe`) plus corpus-gate policy/documentation.
 
 ## Context and Orientation
 
@@ -227,3 +231,4 @@ Core dependencies to introduce:
 - (2026-02-23) Added optional heavy parity fast-mode fixture limiting controls; full end-to-end fast-mode timing remains UNCONFIRMED due user interruption.
 - (2026-02-23) Added native `.xci/.xcz` verify path using new HFS0/XCI container parsing with no-Python tests.
 - (2026-02-23) Completed fast heavy parity mode run and recorded runtime evidence versus full mode.
+- (2026-02-23) Added native `.xcz -> .xci` decompression by rebuilding nested HFS0/XCI containers and updated plan state to mark `decompress`/`verify` fallback removal complete.

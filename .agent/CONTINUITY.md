@@ -6,18 +6,18 @@ Add dated entries with provenance tags per AGENTS.md: [USER], [CODE], [TOOL], [A
 ## Snapshot
 
 Goal: 2026-02-22 [USER] Reimplement Python `nsz` in native safe Rust with total feature parity.
-Now: 2026-02-23 [CODE] Native verify now covers `.nca`/`.ncz`/`.nsp`/`.nsz`/`.xci`/`.xcz`; native decompress covers `.ncz`/`.nsz`; heavy parity fast/full modes are both validated.
+Now: 2026-02-23 [CODE] Native verify covers `.nca`/`.ncz`/`.nsp`/`.nsz`/`.xci`/`.xcz`; native decompress now covers `.ncz`/`.nsz`/`.xcz` (to `.xci`) without Python fallback.
 Next: 2026-02-23 [ASSUMPTION] Continue Task 9 by reducing fallback for XCI/XCZ-related paths and filling remaining operation parity gaps.
-Open Questions: 2026-02-23 [UNCONFIRMED] Need finalized default policy for heavy parity mode selection (`full` vs `fast`) in automated runs and whether `.xcz` native decompression will be prioritized next.
+Open Questions: 2026-02-23 [UNCONFIRMED] Need finalized default policy for heavy parity mode selection (`full` vs `fast`) and whether native `.xci` re-encode header fields should be parity-cloned or normalized.
 
 ## Done (recent)
-- 2026-02-23 [CODE] Added native `HFS0` parser (`container::hfs0`) and native `XCI` root-header/HFS0 locator parser (`container::xci`).
-- 2026-02-23 [CODE] Added native `.xci/.xcz` verify branches in `ops::verify`, including partition traversal and `.ncz` verify inside HFS0 partitions.
-- 2026-02-23 [CODE] Added synthetic no-Python integration tests `verify_uses_native_path_for_xci_inputs` and `verify_uses_native_path_for_xcz_inputs`.
-- 2026-02-23 [TOOL] New `.xci/.xcz` native-path tests pass with invalid Python repo root (proves fallback removal for verify path).
-- 2026-02-23 [TOOL] Validation gates pass after XCI/XCZ verify updates: `cargo fmt --all && cargo test -q && cargo clippy --all-targets --all-features -- -D warnings`.
-- 2026-02-23 [TOOL] Fast heavy parity mode completed and passed: `NSZ_RUN_HEAVY_PARITY=1 NSZ_HEAVY_PARITY_MODE=fast cargo test decompress_verify_matches_python_for_fixture -- --nocapture` (escalated), duration `507.12s`.
-- 2026-02-23 [TOOL] Full heavy parity remains previously validated at `1093.75s` under same fixture root.
+- 2026-02-23 [CODE] Added `encode_hfs0` output builder in `container::hfs0` to support rewritten partition trees.
+- 2026-02-23 [CODE] Added `encode_xci_like` output builder in `container::xci` and relaxed strict `hfs0_header_size` validation to match Python tolerance.
+- 2026-02-23 [CODE] Added native `.xcz -> .xci` decompression path in `ops::decompress` with recursive HFS0 partition rewrite and `.ncz -> .nca` conversion.
+- 2026-02-23 [CODE] Added synthetic no-Python decompression integration test `decompress_uses_native_path_for_xcz_inputs`.
+- 2026-02-23 [TOOL] New `.xcz` native decompression test passes with invalid Python repo root (proves fallback removal for this path).
+- 2026-02-23 [TOOL] Validation gates pass after `.xcz` decompression updates: `cargo fmt --all && cargo test -q && cargo clippy --all-targets --all-features -- -D warnings`.
+- 2026-02-23 [TOOL] Heavy parity was not rerun for this slice because corpus currently contains no `.xcz` fixtures (UNCONFIRMED fixture addition date).
 
 ## Working set
 - /home/matteo/Documents/prog/rust/nsz-rs/.agent/CONTINUITY.md
@@ -32,6 +32,7 @@ Open Questions: 2026-02-23 [UNCONFIRMED] Need finalized default policy for heavy
 - /home/matteo/Documents/prog/rust/nsz-rs/tests/decompress_verify_parity.rs
 - /home/matteo/Documents/prog/rust/nsz-rs/tests/ncz_decompress_meta.rs
 - /home/matteo/Documents/prog/rust/nsz-rs/tests/decompress_native_nsz_op.rs
+- /home/matteo/Documents/prog/rust/nsz-rs/tests/decompress_native_xcz_op.rs
 - /home/matteo/Documents/prog/rust/nsz-rs/tests/verify_native_nca_op.rs
 - /home/matteo/Documents/prog/rust/nsz-rs/tests/verify_native_nsp_nsz_op.rs
 - /home/matteo/Documents/prog/rust/nsz-rs/tests/verify_native_xci_xcz_op.rs
@@ -82,3 +83,5 @@ Open Questions: 2026-02-23 [UNCONFIRMED] Need finalized default policy for heavy
 - 2026-02-23 [TOOL] Fast heavy parity completed successfully after rerun: `NSZ_RUN_HEAVY_PARITY=1 NSZ_HEAVY_PARITY_MODE=fast cargo test decompress_verify_matches_python_for_fixture -- --nocapture` (escalated), duration `507.12s`.
 - 2026-02-23 [TOOL] Added and passed native XCI/XCZ verify coverage: `cargo test verify_uses_native_path_for_xci_inputs -- --nocapture` and `cargo test verify_uses_native_path_for_xcz_inputs -- --nocapture`.
 - 2026-02-23 [CODE] Added repository `.gitignore` to ignore local build artifacts, local venvs, and key files (`target/`, `.venv*`, `keys.txt`, `prod.keys`).
+- 2026-02-23 [TOOL] Added and passed native XCZ decompression coverage: `cargo test decompress_uses_native_path_for_xcz_inputs -- --nocapture`.
+- 2026-02-23 [TOOL] Full validation remains green after native XCZ decompression update: `cargo fmt --all && cargo test -q && cargo clippy --all-targets --all-features -- -D warnings`.
