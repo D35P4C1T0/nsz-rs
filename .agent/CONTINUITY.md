@@ -6,30 +6,31 @@ Add dated entries with provenance tags per AGENTS.md: [USER], [CODE], [TOOL], [A
 ## Snapshot
 
 Goal: 2026-02-22 [USER] Reimplement Python `nsz` in native safe Rust with total feature parity.
-Now: 2026-02-23 [CODE] Native `.ncz` operation and verify paths run without Python fallback, including `NCZBLOCK` and crypto types 3/4; heavy fail-fast parity remains green.
-Next: 2026-02-23 [ASSUMPTION] Continue Task 9 by extending native decompress/verify parity coverage and shrinking Python baseline fallback surface.
-Open Questions: 2026-02-23 [UNCONFIRMED] Need broader real-corpus confirmation of `NCZBLOCK` edge cases (mixed passthrough/compressed blocks) beyond synthetic fixture coverage.
+Now: 2026-02-23 [CODE] Native paths now cover `.ncz` + `.nsz` decompression and `.ncz`/`.nsp`/`.nsz` verify without Python fallback; expanded heavy corpus parity passes.
+Next: 2026-02-23 [ASSUMPTION] Continue Task 9 by reducing fallback for XCI/XCZ-related paths and filling remaining operation parity gaps.
+Open Questions: 2026-02-23 [UNCONFIRMED] Expanded heavy parity runtime is high (~18 minutes in debug); decision pending on whether to split fast-vs-full corpus gates.
 
 ## Done (recent)
-- 2026-02-23 [CODE] Added native `NCZBLOCK` stream decode path in `ncz::decompress` for block-wise zstd/passthrough handling.
-- 2026-02-23 [CODE] Added integration-style unit test `ncz_native_decompress_roundtrip_block_stream`.
-- 2026-02-23 [TOOL] Targeted regression test passes: `cargo test ncz_native_decompress_roundtrip_block_stream -q`.
-- 2026-02-23 [TOOL] Full regular suite remains green (`cargo fmt --all && cargo test -q`).
-- 2026-02-23 [TOOL] Lint gate passes (`cargo clippy --all-targets --all-features -- -D warnings`).
-- 2026-02-23 [TOOL] Heavy fail-fast parity remains green after `NCZBLOCK` support (`NSZ_RUN_HEAVY_PARITY=1 cargo test decompress_verify_matches_python_for_fixture -- --nocapture`, escalated).
-- 2026-02-22 [TOOL] Local baseline environment remains configured (`.venv-nsz-baseline`, keys provisioning via workspace `keys.txt`).
+- 2026-02-23 [CODE] Added native PFS0/NSP parser-writer (`container::nsp`) with bounds checks and deterministic re-encoding.
+- 2026-02-23 [CODE] Added native `.nsz -> .nsp` decompression path in `ops::decompress` (including `.ncz -> .nca` entry rewrite).
+- 2026-02-23 [CODE] Added native `.nsp`/`.nsz` verify path in `ops::verify` plus native tests for `.nsz` decompress and `.nsp`/`.nsz` verify without Python.
+- 2026-02-23 [CODE] Matched Python crypto semantics by treating non-`3/4` NCZ crypto types as passthrough; added regression test.
+- 2026-02-23 [CODE] Expanded heavy corpus parity harness to iterate discovered `.nsz` and `.nsp` fixtures under canonical corpus root.
+- 2026-02-23 [TOOL] Validation gates pass: `cargo fmt --all && cargo test -q && cargo clippy --all-targets --all-features -- -D warnings`.
+- 2026-02-23 [TOOL] Expanded heavy parity passes: `NSZ_RUN_HEAVY_PARITY=1 cargo test decompress_verify_matches_python_for_fixture -- --nocapture` (escalated; ~1093.75s).
 
 ## Working set
 - /home/matteo/Documents/prog/rust/nsz-rs/.agent/CONTINUITY.md
 - /home/matteo/Documents/prog/rust/nsz-rs/.agent/execplans/INDEX.md
 - /home/matteo/Documents/prog/rust/nsz-rs/.agent/execplans/active/EP-2026-02-22__nsz-rs-parity.md
+- /home/matteo/Documents/prog/rust/nsz-rs/src/container/nsp.rs
 - /home/matteo/Documents/prog/rust/nsz-rs/src/ops/decompress.rs
 - /home/matteo/Documents/prog/rust/nsz-rs/src/ops/verify.rs
 - /home/matteo/Documents/prog/rust/nsz-rs/src/ncz/decompress.rs
 - /home/matteo/Documents/prog/rust/nsz-rs/tests/decompress_verify_parity.rs
 - /home/matteo/Documents/prog/rust/nsz-rs/tests/ncz_decompress_meta.rs
-- /home/matteo/Documents/prog/rust/nsz-rs/tests/decompress_native_ncz_op.rs
-- /home/matteo/Documents/prog/rust/nsz-rs/tests/ncz_crypto_roundtrip.rs
+- /home/matteo/Documents/prog/rust/nsz-rs/tests/decompress_native_nsz_op.rs
+- /home/matteo/Documents/prog/rust/nsz-rs/tests/verify_native_nsp_nsz_op.rs
 - /home/matteo/Documents/prog/rust/nsz-rs/tests/verify_native_ncz_op.rs
 - /home/matteo/Documents/switch_games/Bad Cheese [NSP]
 
@@ -68,3 +69,6 @@ Open Questions: 2026-02-23 [UNCONFIRMED] Need broader real-corpus confirmation o
 - 2026-02-23 [TOOL] Added and passed block-stream roundtrip coverage: `cargo test ncz_native_decompress_roundtrip_block_stream -q`.
 - 2026-02-23 [TOOL] Validation gates pass after `NCZBLOCK` decode addition: `cargo fmt --all && cargo test -q` and `cargo clippy --all-targets --all-features -- -D warnings`.
 - 2026-02-23 [TOOL] Heavy parity in sandbox still fails with Python multiprocessing permission; escalated rerun passes with no parity mismatch.
+- 2026-02-23 [TOOL] New red-green coverage landed for native non-`.ncz` paths: `decompress_uses_native_path_for_nsz_inputs`, `verify_uses_native_path_for_nsp_inputs`, `verify_uses_native_path_for_nsz_inputs`.
+- 2026-02-23 [TOOL] Real-corpus heavy parity initially failed on `UnsupportedFeature` for NCZ crypto type != 0/3/4; fixed by passthrough semantics and regression test `ncz_native_decompress_unknown_crypto_type_is_passthrough`.
+- 2026-02-23 [TOOL] Expanded heavy parity passes after fixes: `NSZ_RUN_HEAVY_PARITY=1 cargo test decompress_verify_matches_python_for_fixture -- --nocapture` (escalated), duration `1093.75s`.

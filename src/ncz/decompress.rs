@@ -29,12 +29,6 @@ pub fn decompressed_nca_size_from_bytes(data: &[u8]) -> Result<u64, NszError> {
 pub fn decompress_ncz_to_vec(data: &[u8]) -> Result<Vec<u8>, NszError> {
     let (sections, stream_offset) = parse_sections_with_end(data)?;
 
-    if sections.iter().any(|s| !matches!(s.crypto_type, 0 | 3 | 4)) {
-        return Err(NszError::UnsupportedFeature {
-            feature: "NCZ crypto type other than 0/3/4".to_string(),
-        });
-    }
-
     if data.len() < stream_offset {
         return Err(NszError::ContainerFormat {
             message: "NCZ stream offset outside input".to_string(),

@@ -63,3 +63,23 @@ fn ncz_native_decompress_roundtrip_block_stream() {
     let decompressed = nsz_rs::ncz::decompress::decompress_ncz_to_vec(&fixture).unwrap();
     assert_eq!(&decompressed[0x4000..], payload);
 }
+
+#[test]
+fn ncz_native_decompress_unknown_crypto_type_is_passthrough() {
+    let payload = b"native-unknown-crypto-payload";
+    let compressed = zstd::stream::encode_all(&payload[..], 1).unwrap();
+
+    let mut fixture = vec![0u8; 0x4000];
+    fixture.extend_from_slice(b"NCZSECTN");
+    fixture.extend_from_slice(&(1u64).to_le_bytes());
+    fixture.extend_from_slice(&(0x4000u64).to_le_bytes());
+    fixture.extend_from_slice(&(payload.len() as u64).to_le_bytes());
+    fixture.extend_from_slice(&(2u64).to_le_bytes());
+    fixture.extend_from_slice(&0u64.to_le_bytes());
+    fixture.extend_from_slice(&[0u8; 16]);
+    fixture.extend_from_slice(&[0u8; 16]);
+    fixture.extend_from_slice(&compressed);
+
+    let decompressed = nsz_rs::ncz::decompress::decompress_ncz_to_vec(&fixture).unwrap();
+    assert_eq!(&decompressed[0x4000..], payload);
+}

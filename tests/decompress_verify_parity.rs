@@ -22,48 +22,109 @@ fn decompress_verify_matches_python_for_fixture() {
     std::env::set_var("HOME", &baseline_home);
 
     let corpus_root = PathBuf::from("/home/matteo/Documents/switch_games/Bad Cheese [NSP]");
-    let source_nsz = corpus_root.join("Bad Cheese [0100BAE021208000][v0].nsz");
+    let nsz_fixtures = collect_files_with_extension(&corpus_root, "nsz");
+    for source_nsz in &nsz_fixtures {
+        let fixture_id = source_nsz
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("fixture")
+            .replace('/', "_");
+        let baseline_out = temp_root.join("baseline").join(&fixture_id);
+        let rust_out = temp_root.join("rust").join(&fixture_id);
+        fs::create_dir_all(&baseline_out).unwrap();
+        fs::create_dir_all(&rust_out).unwrap();
 
-    let baseline_out = temp_root.join("baseline");
-    let rust_out = temp_root.join("rust");
-    fs::create_dir_all(&baseline_out).unwrap();
-    fs::create_dir_all(&rust_out).unwrap();
+        nsz_rs::parity::python_runner::run_nsz_cli(
+            &python_repo,
+            &[
+                "-D".to_string(),
+                "-o".to_string(),
+                baseline_out.display().to_string(),
+                source_nsz.display().to_string(),
+            ],
+        )
+        .unwrap();
 
-    nsz_rs::parity::python_runner::run_nsz_cli(
-        &python_repo,
-        &[
-            "-D".to_string(),
-            "-o".to_string(),
-            baseline_out.display().to_string(),
-            source_nsz.display().to_string(),
-        ],
-    )
-    .unwrap();
+        let report = nsz_rs::decompress(&nsz_rs::DecompressRequest {
+            files: vec![source_nsz.clone()],
+            output_dir: Some(rust_out.clone()),
+            fix_padding: false,
+            python_repo_root: Some(PathBuf::from("/does/not/exist")),
+        })
+        .unwrap();
 
-    let report = nsz_rs::decompress(&nsz_rs::DecompressRequest {
-        files: vec![source_nsz.clone()],
-        output_dir: Some(rust_out.clone()),
-        fix_padding: false,
-        python_repo_root: Some(python_repo.clone()),
-    })
-    .unwrap();
+        let output_name = source_nsz
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap()
+            .replace(".nsz", ".nsp");
+        let baseline_nsp = baseline_out.join(&output_name);
+        let rust_nsp = rust_out.join(&output_name);
 
-    let baseline_nsp = baseline_out.join("Bad Cheese [0100BAE021208000][v0].nsp");
-    let rust_nsp = rust_out.join("Bad Cheese [0100BAE021208000][v0].nsp");
+        assert!(report.processed_files.contains(&rust_nsp));
+        assert!(files_equal(&baseline_nsp, &rust_nsp));
 
-    assert!(report.processed_files.contains(&rust_nsp));
-    assert!(files_equal(&baseline_nsp, &rust_nsp));
+        nsz_rs::parity::python_runner::run_nsz_cli(
+            &python_repo,
+            &["-V".to_string(), source_nsz.display().to_string()],
+        )
+        .unwrap();
+        let verify_nsz = nsz_rs::verify(&nsz_rs::VerifyRequest {
+            files: vec![source_nsz.clone()],
+            fix_padding: false,
+            python_repo_root: Some(PathBuf::from("/does/not/exist")),
+        })
+        .unwrap();
+        assert_eq!(verify_nsz.verified_files, vec![source_nsz.clone()]);
 
-    let verify = nsz_rs::verify(&nsz_rs::VerifyRequest {
-        files: vec![rust_nsp.clone()],
-        fix_padding: false,
-        python_repo_root: Some(python_repo),
-    })
-    .unwrap();
+        let verify_nsp = nsz_rs::verify(&nsz_rs::VerifyRequest {
+            files: vec![rust_nsp.clone()],
+            fix_padding: false,
+            python_repo_root: Some(PathBuf::from("/does/not/exist")),
+        })
+        .unwrap();
+        assert_eq!(verify_nsp.verified_files, vec![rust_nsp]);
+    }
 
-    assert_eq!(verify.verified_files, vec![rust_nsp]);
+    let nsp_fixtures = collect_files_with_extension(&corpus_root, "nsp");
+    for source_nsp in &nsp_fixtures {
+        nsz_rs::parity::python_runner::run_nsz_cli(
+            &python_repo,
+            &["-V".to_string(), source_nsp.display().to_string()],
+        )
+        .unwrap();
+        let verify_nsp = nsz_rs::verify(&nsz_rs::VerifyRequest {
+            files: vec![source_nsp.clone()],
+            fix_padding: false,
+            python_repo_root: Some(PathBuf::from("/does/not/exist")),
+        })
+        .unwrap();
+        assert_eq!(verify_nsp.verified_files, vec![source_nsp.clone()]);
+    }
 
     let _ = fs::remove_dir_all(temp_root);
+}
+
+fn collect_files_with_extension(root: &Path, extension: &str) -> Vec<PathBuf> {
+    let mut out = Vec::new();
+    let Ok(entries) = fs::read_dir(root) else {
+        return out;
+    };
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let matches = path
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .map(|ext| ext.eq_ignore_ascii_case(extension))
+            .unwrap_or(false);
+        if matches {
+            out.push(path);
+        }
+    }
+
+    out.sort();
+    out
 }
 
 fn prepare_home_with_keys(python_repo: &Path, target_home: &Path) -> bool {
