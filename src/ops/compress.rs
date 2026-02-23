@@ -90,11 +90,25 @@ pub fn run(request: &CompressRequest) -> Result<OperationReport, NszError> {
 
 fn compress_nsp_to_nsz(data: &[u8], level: i32) -> Result<Vec<u8>, NszError> {
     let archive = NspArchive::from_bytes(data)?;
+    let largest_convertible_nca = archive
+        .entries()
+        .iter()
+        .filter(|entry| {
+            entry.name.to_ascii_lowercase().ends_with(".nca")
+                && !entry.name.to_ascii_lowercase().ends_with(".cnmt.nca")
+                && entry.size as usize > UNCOMPRESSABLE_HEADER_SIZE
+        })
+        .map(|entry| entry.size)
+        .max();
     let mut output_entries = Vec::with_capacity(archive.entries().len());
 
     for entry in archive.entries() {
         let entry_bytes = archive.entry_bytes(data, entry);
-        if entry.name.to_ascii_lowercase().ends_with(".nca") {
+        if entry.name.to_ascii_lowercase().ends_with(".nca")
+            && !entry.name.to_ascii_lowercase().ends_with(".cnmt.nca")
+            && entry_bytes.len() > UNCOMPRESSABLE_HEADER_SIZE
+            && Some(entry.size) == largest_convertible_nca
+        {
             let mut new_name = PathBuf::from(&entry.name);
             new_name.set_extension("ncz");
             let name = new_name
@@ -126,11 +140,25 @@ fn compress_xci_to_xcz(data: &[u8], level: i32) -> Result<Vec<u8>, NszError> {
     for partition in root.entries() {
         let partition_bytes = root.entry_bytes(root_bytes, partition);
         let partition_archive = Hfs0Archive::from_bytes(partition_bytes)?;
+        let largest_convertible_nca = partition_archive
+            .entries()
+            .iter()
+            .filter(|entry| {
+                entry.name.to_ascii_lowercase().ends_with(".nca")
+                    && !entry.name.to_ascii_lowercase().ends_with(".cnmt.nca")
+                    && entry.size as usize > UNCOMPRESSABLE_HEADER_SIZE
+            })
+            .map(|entry| entry.size)
+            .max();
 
         let mut partition_output_entries = Vec::with_capacity(partition_archive.entries().len());
         for entry in partition_archive.entries() {
             let entry_bytes = partition_archive.entry_bytes(partition_bytes, entry);
-            if entry.name.to_ascii_lowercase().ends_with(".nca") {
+            if entry.name.to_ascii_lowercase().ends_with(".nca")
+                && !entry.name.to_ascii_lowercase().ends_with(".cnmt.nca")
+                && entry_bytes.len() > UNCOMPRESSABLE_HEADER_SIZE
+                && Some(entry.size) == largest_convertible_nca
+            {
                 let mut new_name = PathBuf::from(&entry.name);
                 new_name.set_extension("ncz");
                 let name = new_name
@@ -245,3 +273,4 @@ fn expected_compressed_output(input: &Path, output_dir: Option<&Path>) -> Option
 
     Some(input.parent()?.join(output_name))
 }
+const UNCOMPRESSABLE_HEADER_SIZE: usize = 0x4000;

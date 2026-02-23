@@ -41,6 +41,8 @@ After this change, the repository will provide a native safe Rust library that r
 - [x] (2026-02-23T04:05Z) Completed parity-first `decompress`/`verify` native fallback removal for covered formats (`.nca`/`.ncz`/`.nsp`/`.nsz`/`.xci`/`.xcz`).
 - [x] (2026-02-23T16:20Z) Implemented `compress` operation wiring with Python parity CLI dispatch, full option/config mapping, and integration coverage for output reporting.
 - [x] (2026-02-23T16:55Z) Added native `compress` paths for `.nca`/`.nsp`/`.xci` by emitting NCZ payloads and rewriting NSP/XCI containers without Python fallback; fallback retained for unsupported formats.
+- [x] (2026-02-23T18:15Z) Added staged heavy `compress` parity harness (`compress_matches_python_for_fixture`) with fast smallest-fixture selection and detailed mismatch diagnostics.
+- [x] (2026-02-23T18:20Z) Aligned native compress entry-selection behavior with sampled Python fixture by skipping tiny NCAs and only converting largest eligible NCA per container scope.
 - [ ] Replace minimal native `compress` NCZ emission with strict Python 4.6.1 solid/block byte-parity behavior.
 - [ ] Implement remaining operations in parity-first order: `extract`/`create`/`titlekeys`/`undupe`.
 - [ ] Implement corpus-wide parity harness and docs for adding new samples.
@@ -87,6 +89,8 @@ After this change, the repository will provide a native safe Rust library that r
   Evidence: `compress_invokes_cli_and_reports_outputs` passes using a fake local `nsz.py`; full gates remain green.
 - Observation: once native `.nsp/.xci` compression is introduced, CLI fallback coverage needs to target unsupported extensions so native parsing does not mask fallback behavior.
   Evidence: previous `.nsp/.xci` fallback test failed with `PFS0 container too short`; updated fallback test on `.txt` input now passes.
+- Observation: after entry-selection alignment, the sampled NSP parity mismatch persists at byte offset 48 with matching entry names, indicating remaining divergence in generated NCZ payload bytes/size rather than container entry selection.
+  Evidence: `compress_matches_python_for_fixture` reports baseline size `128302175` vs Rust size `159383620` with identical entry name lists.
 
 ## Decision Log
 
@@ -108,7 +112,7 @@ After this change, the repository will provide a native safe Rust library that r
 
 ## Outcomes & Retrospective
 
-Current status: Task 9 native replacement now covers `.ncz`/`.nsz`/`.xcz` decompression and `.nca`/`.ncz`/`.nsp`/`.nsz`/`.xci`/`.xcz` verify flows without Python fallback, backed by synthetic native-path tests and expanded corpus parity checks. `compress` now has both fallback and native routes (`.nca`/`.nsp`/`.xci`), but native output still needs strict byte-parity alignment with Python 4.6.1 solid/block behavior. Remaining work is strict native `compress` parity, then `extract`/`create`/`titlekeys`/`undupe`, plus corpus-gate policy/documentation.
+Current status: Task 9 native replacement now covers `.ncz`/`.nsz`/`.xcz` decompression and `.nca`/`.ncz`/`.nsp`/`.nsz`/`.xci`/`.xcz` verify flows without Python fallback, backed by synthetic native-path tests and expanded corpus parity checks. `compress` now has both fallback and native routes (`.nca`/`.nsp`/`.xci`), and entry-selection on sampled NSP fixture is aligned with Python, but NCZ payload bytes still diverge from Python 4.6.1 output. Remaining work is strict native NCZ generation parity for `compress`, then `extract`/`create`/`titlekeys`/`undupe`, plus corpus-gate policy/documentation.
 
 ## Context and Orientation
 
@@ -241,3 +245,5 @@ Core dependencies to introduce:
 - (2026-02-23) Added native `.xcz -> .xci` decompression by rebuilding nested HFS0/XCI containers and updated plan state to mark `decompress`/`verify` fallback removal complete.
 - (2026-02-23) Added `compress` operation parity wrapper (`ops::compress`) with Rust request-to-CLI flag mapping and integration coverage for processed output reporting.
 - (2026-02-23) Extended `compress` with native `.nca` conversion plus native `.nsp/.xci` container rewriting and updated fallback integration tests to exercise unsupported-extension routing.
+- (2026-02-23) Added staged heavy compress parity harness plus smallest-fixture fast mode to avoid long hangs and expose deterministic mismatch diagnostics.
+- (2026-02-23) Updated native compress entry-selection heuristics (skip tiny NCAs + convert largest eligible NCA only) and confirmed remaining mismatch is NCZ payload byte generation.
