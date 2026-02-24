@@ -112,3 +112,15 @@ cargo test -q
 cargo clippy --all-targets -- -D warnings
 python3 -m py_compile python/nsz/__init__.py python/nsz/__main__.py python/nsz/ParseArguments.py nsz.py
 ```
+
+## CI policy
+
+GitHub Actions runs formatting, linting, build checks, Python-feature compilation, and a fast Rust test suite.
+
+Game-fixture parity and benchmark tests are intentionally excluded from CI and remain opt-in via environment flags:
+
+- `NSZ_RUN_HEAVY_PARITY=1`
+- `NSZ_RUN_HEAVY_COMPRESS_PARITY=1`
+- `NSZ_RUN_HEAVY_XCI_COMPRESS_PARITY=1`
+- `NSZ_RUN_HEAVY_MISC_PARITY=1`
+- `NSZ_RUN_HEAVY_SPEED_BENCH=1`

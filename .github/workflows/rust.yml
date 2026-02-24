@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+      - name: Lint
+        run: cargo clippy --all-targets -- -D warnings
+      - name: Build
+        run: cargo build --verbose
+      - name: Check Python feature build
+        run: cargo check --features python
+      - name: Validate Python wrappers
+        run: python3 -m py_compile python/nsz/__init__.py python/nsz/__main__.py python/nsz/ParseArguments.py nsz.py
+
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Run fast test suite (no game fixtures)
+        run: >
+          cargo test --workspace --all-targets --verbose --
+          --skip python_baseline_reports_461
+          --skip decompress_verify_matches_python_for_fixture
+          --skip compress_matches_python_for_fixture
+          --skip compress_xci_matches_python_for_fixture
+          --skip misc_ops_match_python_behavior_on_fixture_set
+          --skip benchmark_python_vs_rust_on_same_inputs
