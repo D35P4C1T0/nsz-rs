@@ -161,11 +161,12 @@ impl NspArchive {
     }
 }
 
-pub fn encode_pfs0(
-    entries: &[(String, Vec<u8>)],
+pub fn encode_pfs0<B: AsRef<[u8]>>(
+    entries: &[(String, B)],
     first_file_offset: u64,
     base_string_table_size: u32,
 ) -> Result<Vec<u8>, NszError> {
+    let payloads: Vec<&[u8]> = entries.iter().map(|(_, data)| data.as_ref()).collect();
     let mut string_table = Vec::new();
     let mut string_offsets = Vec::with_capacity(entries.len());
     for (name, _) in entries {
@@ -200,31 +201,47 @@ pub fn encode_pfs0(
     header.extend_from_slice(&0u32.to_le_bytes());
 
     let mut abs_offset = first_file_offset;
-    for ((_, data), string_offset) in entries.iter().zip(string_offsets.iter()) {
+    for (payload, string_offset) in payloads.iter().zip(string_offsets.iter()) {
         let rel_offset = abs_offset.checked_sub(header_size as u64).ok_or_else(|| {
             NszError::ContainerFormat {
                 message: "PFS0 relative offset underflow".to_string(),
             }
         })?;
         header.extend_from_slice(&rel_offset.to_le_bytes());
-        header.extend_from_slice(&(data.len() as u64).to_le_bytes());
+        header.extend_from_slice(&(payload.len() as u64).to_le_bytes());
         header.extend_from_slice(&string_offset.to_le_bytes());
         header.extend_from_slice(&0u32.to_le_bytes());
-        abs_offset =
-            abs_offset
-                .checked_add(data.len() as u64)
-                .ok_or_else(|| NszError::ContainerFormat {
-                    message: "PFS0 absolute offset overflow".to_string(),
-                })?;
+        abs_offset = abs_offset
+            .checked_add(payload.len() as u64)
+            .ok_or_else(|| NszError::ContainerFormat {
+                message: "PFS0 absolute offset overflow".to_string(),
+            })?;
     }
 
     header.extend_from_slice(&string_table);
     header.resize(header_size, 0);
 
-    let mut out = header;
-    out.resize(first_file_offset as usize, 0);
-    for (_, data) in entries {
-        out.extend_from_slice(data);
+    let first_file_offset = usize::try_from(first_file_offset).map_err(|_| {
+        NszError::ContainerFormat {
+            message: "PFS0 first file offset does not fit usize".to_string(),
+        }
+    })?;
+    let payload_size = payloads.iter().try_fold(0usize, |acc, payload| {
+        acc.checked_add(payload.len()).ok_or_else(|| NszError::ContainerFormat {
+            message: "PFS0 payload size overflow".to_string(),
+        })
+    })?;
+    let total_size = first_file_offset
+        .checked_add(payload_size)
+        .ok_or_else(|| NszError::ContainerFormat {
+            message: "PFS0 output size overflow".to_string(),
+        })?;
+
+    let mut out = Vec::with_capacity(total_size);
+    out.extend_from_slice(&header);
+    out.resize(first_file_offset, 0);
+    for payload in payloads {
+        out.extend_from_slice(payload);
     }
     Ok(out)
 }

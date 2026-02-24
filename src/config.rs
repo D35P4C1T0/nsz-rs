@@ -65,13 +65,37 @@ pub struct VerifyRequest {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct ExtractRequest;
+pub struct ExtractRequest {
+    pub files: Vec<PathBuf>,
+    pub output_dir: Option<PathBuf>,
+    pub extract_regex: Option<String>,
+    pub python_repo_root: Option<PathBuf>,
+}
 
 #[derive(Debug, Clone, Default)]
-pub struct CreateRequest;
+pub struct CreateRequest {
+    pub output_file: Option<PathBuf>,
+    pub sources: Vec<PathBuf>,
+    pub fix_padding: bool,
+    pub python_repo_root: Option<PathBuf>,
+}
 
 #[derive(Debug, Clone, Default)]
-pub struct TitleKeysRequest;
+pub struct TitleKeysRequest {
+    pub files: Vec<PathBuf>,
+    pub python_repo_root: Option<PathBuf>,
+}
 
 #[derive(Debug, Clone, Default)]
-pub struct UndupeRequest;
+pub struct UndupeRequest {
+    pub files: Vec<PathBuf>,
+    pub output_dir: Option<PathBuf>,
+    pub dry_run: bool,
+    pub rename: bool,
+    pub hardlink: bool,
+    pub priority_list: Option<String>,
+    pub whitelist: Option<String>,
+    pub blacklist: Option<String>,
+    pub old_versions: bool,
+    pub python_repo_root: Option<PathBuf>,
+}

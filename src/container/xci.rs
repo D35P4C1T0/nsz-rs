@@ -17,7 +17,7 @@ impl XciArchive {
         };
         let base = header_offset as usize;
 
-        if data.len() < base + 0x148 {
+        if data.len() < base + 0x140 {
             return Err(NszError::ContainerFormat {
                 message: "XCI header truncated".to_string(),
             });
@@ -29,9 +29,9 @@ impl XciArchive {
             });
         }
 
-        let hfs0_offset = u64::from_le_bytes(data[base + 0x138..base + 0x140].try_into().unwrap());
+        let hfs0_offset = u64::from_le_bytes(data[base + 0x130..base + 0x138].try_into().unwrap());
         let hfs0_header_size =
-            u64::from_le_bytes(data[base + 0x140..base + 0x148].try_into().unwrap());
+            u64::from_le_bytes(data[base + 0x138..base + 0x140].try_into().unwrap());
         let hfs0_abs_offset =
             header_offset
                 .checked_add(hfs0_offset)

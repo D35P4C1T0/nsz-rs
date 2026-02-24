@@ -6,18 +6,18 @@ Add dated entries with provenance tags per AGENTS.md: [USER], [CODE], [TOOL], [A
 ## Snapshot
 
 Goal: 2026-02-22 [USER] Reimplement Python `nsz` in native safe Rust with total feature parity.
-Now: 2026-02-24 [CODE] Byte parity remains intact for heavy NSP/XCI compress gates; native NCZ compress/decompress paths now avoid extra per-chunk allocations and benchmark harness reports final release-mode speed snapshot (`compress` ~= `0.992x` Python, `decompress` ~= `3.668x` Python on staged fixture).
-Next: 2026-02-24 [ASSUMPTION] Continue parity-safe speed iterations with release-mode Rust-vs-Python benchmark measurements after each optimization step and periodic `/tmp` cleanup.
+Now: 2026-02-24 [CODE] Byte parity remains intact after container preallocation + NCZ loop refactors; latest single-file release benchmark on `Arco` shows Rust compression faster than Python (`1.029x`).
+Next: 2026-02-24 [ASSUMPTION] Continue parity-safe compression tuning with one benchmark per iteration; keep only byte-identical changes that improve compression speed.
 Open Questions: 2026-02-24 [UNCONFIRMED] None.
 
 ## Done (recent)
-- 2026-02-24 [USER] Requested periodic `/tmp` artifact cleanup during heavy testing loops and benchmark sampling after each optimization iteration.
-- 2026-02-24 [CODE] Optimized native NCZ decompress/compress memory paths: removed per-section decrypt clones in `src/ncz/decompress.rs` and removed per-chunk copy for unencrypted compress segments in `src/ncz/compress.rs`.
-- 2026-02-24 [CODE] Added release-mode same-input benchmark harness `tests/perf_compare_python.rs` with Python-vs-Rust timing and byte-equality assertions for `compress` and `decompress`.
-- 2026-02-24 [CODE] Added regression coverage for NCZ leading-gap handling: `ncz_native_decompress_preserves_leading_gap_before_first_section`.
-- 2026-02-24 [CODE] Refined XCI tail-trim policy in `src/ops/compress.rs` to keep native single-partition XCI correctness while preserving multi-partition byte parity with Python.
-- 2026-02-24 [TOOL] Final verification sweep passed: standard gates, heavy XCI parity, and fast heavy NSP compress parity.
-- 2026-02-24 [TOOL] Final release benchmark snapshot captured and recorded in receipts.
+- 2026-02-24 [CODE] Generalized container encoders to accept borrowed payloads (`encode_pfs0` / `encode_hfs0` now generic over `AsRef<[u8]>`) and updated native compress paths to use `Cow` instead of cloning unchanged entry payloads.
+- 2026-02-24 [CODE] Refactored NCZ compression loops to reuse AES-CTR state per part and stream zstd output directly into final output buffer.
+- 2026-02-24 [CODE] Refactored PFS0/HFS0 encoders to precompute and preallocate full output capacity, avoiding repeated Vec growth during large container assembly.
+- 2026-02-24 [TOOL] Fast heavy NSP compress parity remains byte-identical after NCZ + container assembly refactors.
+- 2026-02-24 [TOOL] Release benchmark on `/home/matteo/Documents/switch_games/Arco [NSP]/Arco [0100E6601ACB6000][v0].nsp` reports compression speedup `1.029x` (Python `60095ms`, Rust `58409ms`).
+- 2026-02-24 [USER] Confirmed policy: ignore run-to-run noise and keep/refactor improvements whenever byte parity is preserved and speed improves.
+- 2026-02-24 [TOOL] Benchmark timing indicates byte-compare overhead is small relative to compression runtime (~`0.46s` of `118.96s` total in latest compress-only run).
 
 ## Working set
 - /home/matteo/Documents/prog/rust/nsz-rs/.agent/CONTINUITY.md
@@ -50,6 +50,8 @@ Open Questions: 2026-02-24 [UNCONFIRMED] None.
 - D014 ACTIVE: 2026-02-24 [USER] During testing, periodically clean compressed parity artifacts in `/tmp` to prevent space-related interruptions.
 - D015 ACTIVE: 2026-02-24 [USER] During performance tuning, run same-input benchmarks for both Rust and Python implementations after each optimization iteration.
 - D016 ACTIVE: 2026-02-24 [USER] If verification reaches a stable state, create a commit for the completed optimization slice.
+- D017 ACTIVE: 2026-02-24 [USER] Benchmark fixture discovery may recurse through `/home/matteo/Documents/switch_games`, but compression benchmark input must be a single `.nsp` file, not a folder batch.
+- D018 ACTIVE: 2026-02-24 [USER] During optimization, ignore run-to-run noise; keep/refactor only byte-identical changes that show benchmark speed improvement.
 
 ## Receipts
 - 2026-02-22 [TOOL] Baseline inventory and reference pin completed: Python repo surveyed; baseline fixed to `4.6.1` commit `d84f7c813c3fe278104ff8877803f22028e57452`; corpus root set to `/home/matteo/Documents/switch_games/Bad Cheese [NSP]`.
@@ -108,3 +110,5 @@ Open Questions: 2026-02-24 [UNCONFIRMED] None.
 - 2026-02-24T02:46Z [TOOL] Heavy XCI parity pass restored: `NSZ_RUN_HEAVY_XCI_COMPRESS_PARITY=1 cargo test --test compress_xci_parity -- --nocapture` (duration `894.10s`).
 - 2026-02-24T02:48Z [TOOL] Fast heavy NSP compress parity remained byte-identical: `NSZ_RUN_HEAVY_COMPRESS_PARITY=1 NSZ_HEAVY_PARITY_MODE=fast cargo test compress_matches_python_for_fixture -- --nocapture` (duration `68.59s`).
 - 2026-02-24T02:49Z [TOOL] Final release benchmark snapshot: `compress speedup=0.992x`, `decompress speedup=3.668x` on `/home/matteo/Documents/switch_games/Bad Cheese [NSP]/Bad Cheese [0100BAE021208000][v0]`.
+- 2026-02-24T03:37Z [TOOL] Post-refactor fast heavy NSP parity remains byte-identical: `NSZ_RUN_HEAVY_COMPRESS_PARITY=1 NSZ_HEAVY_PARITY_MODE=fast cargo test compress_matches_python_for_fixture -- --nocapture` (duration `89.53s`).
+- 2026-02-24T03:40Z [TOOL] Post-refactor single-file release benchmark (`compress-only`) on `Arco` reports `python_ms=60095`, `rust_ms=58409`, `speedup=1.029x`.

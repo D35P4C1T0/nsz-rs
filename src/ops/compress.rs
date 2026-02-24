@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -123,7 +124,8 @@ fn compress_nsp_to_nsz(
         })
         .map(|entry| entry.size)
         .max();
-    let mut output_entries = Vec::with_capacity(archive.entries().len());
+    let mut output_entries: Vec<(String, Cow<'_, [u8]>)> =
+        Vec::with_capacity(archive.entries().len());
 
     for entry in archive.entries() {
         let entry_bytes = archive.entry_bytes(data, entry);
@@ -160,9 +162,9 @@ fn compress_nsp_to_nsz(
                 solid_threads,
                 plan.as_ref(),
             )?;
-            output_entries.push((name, output));
+            output_entries.push((name, Cow::Owned(output)));
         } else {
-            output_entries.push((entry.name.clone(), entry_bytes.to_vec()));
+            output_entries.push((entry.name.clone(), Cow::Borrowed(entry_bytes)));
         }
     }
 
@@ -190,7 +192,8 @@ fn compress_xci_to_xcz(
         let is_last_partition = index + 1 == root.entries().len();
         let partition_name = partition.name.to_ascii_lowercase();
         if !request.keep && partition_name != "secure" {
-            let empty_partition = encode_hfs0(&[], 0x11, 1)?;
+            let empty_entries: [(String, Cow<'_, [u8]>); 0] = [];
+            let empty_partition = encode_hfs0(&empty_entries, 0x11, 1)?;
             let aligned_empty_partition = align_xci_partition_size(empty_partition);
             if is_last_partition && root.entries().len() > 1 {
                 trailing_padding_to_trim = aligned_empty_partition.len().saturating_sub(0x11);
@@ -219,7 +222,8 @@ fn compress_xci_to_xcz(
             .map(|entry| entry.size)
             .max();
 
-        let mut partition_output_entries = Vec::with_capacity(partition_archive.entries().len());
+        let mut partition_output_entries: Vec<(String, Cow<'_, [u8]>)> =
+            Vec::with_capacity(partition_archive.entries().len());
         for entry in partition_archive.entries() {
             let entry_bytes = partition_archive.entry_bytes(partition_bytes, entry);
             if should_convert_nca_entry(
@@ -265,9 +269,9 @@ fn compress_xci_to_xcz(
                         plan.as_ref(),
                     )?
                 };
-                partition_output_entries.push((name, output));
+                partition_output_entries.push((name, Cow::Owned(output)));
             } else {
-                partition_output_entries.push((entry.name.clone(), entry_bytes.to_vec()));
+                partition_output_entries.push((entry.name.clone(), Cow::Borrowed(entry_bytes)));
             }
         }
 

@@ -24,7 +24,7 @@ fn benchmark_python_vs_rust_on_same_inputs() {
     }
     std::env::set_var("HOME", &baseline_home);
 
-    let corpus_root = PathBuf::from("/home/matteo/Documents/switch_games/Bad Cheese [NSP]");
+    let corpus_root = benchmark_corpus_root();
     let compress_input =
         match benchmark_input_from_env_or_corpus("NSZ_BENCH_COMPRESS_INPUT", &corpus_root, "nsp") {
             Some(path) => path,
@@ -76,6 +76,11 @@ fn benchmark_python_vs_rust_on_same_inputs() {
         rust_compress_elapsed.as_millis(),
         speedup_ratio(python_compress_elapsed, rust_compress_elapsed)
     );
+
+    if std::env::var("NSZ_BENCH_COMPRESS_ONLY").ok().as_deref() == Some("1") {
+        let _ = fs::remove_dir_all(temp_root);
+        return;
+    }
 
     let decompress_input =
         benchmark_input_from_env_or_corpus("NSZ_BENCH_DECOMPRESS_INPUT", &corpus_root, "nsz")
@@ -158,6 +163,22 @@ fn benchmark_input_from_env_or_corpus(
     let mut fixtures = collect_files_with_extension(corpus_root, ext);
     fixtures.sort();
     fixtures.into_iter().next()
+}
+
+fn benchmark_corpus_root() -> PathBuf {
+    if let Ok(path) = std::env::var("NSZ_BENCH_CORPUS_ROOT") {
+        let path = PathBuf::from(path);
+        if path.exists() {
+            return path;
+        }
+    }
+
+    let switch_games_root = PathBuf::from("/home/matteo/Documents/switch_games");
+    if switch_games_root.exists() {
+        return switch_games_root;
+    }
+
+    PathBuf::from("/home/matteo/Documents/switch_games/Bad Cheese [NSP]")
 }
 
 fn collect_files_with_extension(root: &Path, ext: &str) -> Vec<PathBuf> {

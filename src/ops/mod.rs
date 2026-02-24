@@ -1,5 +1,9 @@
 pub mod compress;
+pub mod create;
 pub mod decompress;
+pub mod extract;
+pub mod titlekeys;
+pub mod undupe;
 pub mod verify;
 
 use std::path::PathBuf;

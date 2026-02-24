@@ -9,7 +9,7 @@ path = "src/lib.rs"
 
 [dependencies]
 thiserror = "2"
-zstd = "0.13"
+zstd = { version = "0.13", features = ["zstdmt"] }
 aes = "0.8"
 ctr = "0.9"
 sha2 = "0.10"

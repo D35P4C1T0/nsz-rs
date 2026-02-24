@@ -117,8 +117,8 @@ fn build_xci_like(root_hfs0: Vec<u8>) -> Vec<u8> {
     let hfs0_offset = 0xF000u64;
     let mut out = vec![0u8; 0x200];
     out[0x100..0x104].copy_from_slice(b"HEAD");
-    out[0x138..0x140].copy_from_slice(&hfs0_offset.to_le_bytes());
-    out[0x140..0x148].copy_from_slice(&(root_hfs0.len() as u64).to_le_bytes());
+    out[0x130..0x138].copy_from_slice(&hfs0_offset.to_le_bytes());
+    out[0x138..0x140].copy_from_slice(&(root_hfs0.len() as u64).to_le_bytes());
     out.resize(hfs0_offset as usize, 0);
     out.extend_from_slice(&root_hfs0);
     out

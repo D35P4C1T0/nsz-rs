@@ -26,18 +26,18 @@ pub fn verify(request: &VerifyRequest) -> Result<VerifyReport, NszError> {
     ops::verify::run(request)
 }
 
-pub fn extract(_: &ExtractRequest) -> Result<OperationReport, NszError> {
-    Err(NszError::NotImplemented("extract"))
+pub fn extract(request: &ExtractRequest) -> Result<OperationReport, NszError> {
+    ops::extract::run(request)
 }
 
-pub fn create(_: &CreateRequest) -> Result<OperationReport, NszError> {
-    Err(NszError::NotImplemented("create"))
+pub fn create(request: &CreateRequest) -> Result<OperationReport, NszError> {
+    ops::create::run(request)
 }
 
-pub fn titlekeys(_: &TitleKeysRequest) -> Result<OperationReport, NszError> {
-    Err(NszError::NotImplemented("titlekeys"))
+pub fn titlekeys(request: &TitleKeysRequest) -> Result<OperationReport, NszError> {
+    ops::titlekeys::run(request)
 }
 
-pub fn undupe(_: &UndupeRequest) -> Result<OperationReport, NszError> {
-    Err(NszError::NotImplemented("undupe"))
+pub fn undupe(request: &UndupeRequest) -> Result<OperationReport, NszError> {
+    ops::undupe::run(request)
 }
