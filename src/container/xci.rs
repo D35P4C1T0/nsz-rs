@@ -3,12 +3,16 @@ use crate::error::NszError;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct XciArchive {
+    /// Header base offset used for this XCI layout.
     pub header_offset: u64,
+    /// Root HFS0 offset relative to `header_offset`.
     pub hfs0_offset: u64,
+    /// Root HFS0 header size field from the XCI header.
     pub hfs0_header_size: u64,
 }
 
 impl XciArchive {
+    /// Parses the XCI root header and HFS0 location metadata.
     pub fn from_bytes(data: &[u8]) -> Result<Self, NszError> {
         let header_offset = if data.len() >= 0x104 && &data[0x100..0x104] == b"HEAD" {
             0u64
@@ -52,6 +56,7 @@ impl XciArchive {
         })
     }
 
+    /// Returns a slice starting at the root HFS0 region.
     pub fn root_hfs0_bytes<'a>(&self, data: &'a [u8]) -> Result<&'a [u8], NszError> {
         let absolute = self
             .header_offset
@@ -68,10 +73,12 @@ impl XciArchive {
         Ok(&data[absolute..])
     }
 
+    /// Parses and returns the root HFS0 archive.
     pub fn root_hfs0_archive(&self, data: &[u8]) -> Result<Hfs0Archive, NszError> {
         Hfs0Archive::from_bytes(self.root_hfs0_bytes(data)?)
     }
 
+    /// Computes the absolute byte offset of the root HFS0 region.
     pub fn root_hfs0_absolute_offset(&self) -> Result<u64, NszError> {
         self.header_offset
             .checked_add(self.hfs0_offset)
@@ -81,6 +88,7 @@ impl XciArchive {
     }
 }
 
+/// Rebuilds an XCI-like output by preserving the original prefix and replacing root HFS0 bytes.
 pub fn encode_xci_like(
     input: &[u8],
     archive: &XciArchive,

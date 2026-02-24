@@ -1,3 +1,4 @@
+use std::fmt::Write as _;
 use std::fs;
 use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};
@@ -78,18 +79,18 @@ fn decompress_verify_matches_python_for_fixture() {
         .unwrap();
         assert_eq!(verify_nsz.verified_files, vec![source_nsz.clone()]);
 
-        let verify_nsp = nsz_rs::verify(&nsz_rs::VerifyRequest {
+        let verify_decompressed_nsp = nsz_rs::verify(&nsz_rs::VerifyRequest {
             files: vec![rust_nsp.clone()],
             fix_padding: false,
             python_repo_root: Some(PathBuf::from("/does/not/exist")),
         })
         .unwrap();
-        assert_eq!(verify_nsp.verified_files, vec![rust_nsp]);
+        assert_eq!(verify_decompressed_nsp.verified_files, vec![rust_nsp]);
     }
 
-    let nsp_fixtures = collect_files_with_extension(&corpus_root, "nsp");
-    let nsp_fixtures = apply_heavy_fixture_mode(nsp_fixtures);
-    for source_nsp in &nsp_fixtures {
+    let plain_nsp_fixtures = collect_files_with_extension(&corpus_root, "nsp");
+    let plain_nsp_fixtures = apply_heavy_fixture_mode(plain_nsp_fixtures);
+    for source_nsp in &plain_nsp_fixtures {
         nsz_rs::parity::python_runner::run_nsz_cli(
             &python_repo,
             &["-V".to_string(), source_nsp.display().to_string()],
@@ -267,8 +268,7 @@ fn collect_files_with_extension(root: &Path, extension: &str) -> Vec<PathBuf> {
         let matches = path
             .extension()
             .and_then(|ext| ext.to_str())
-            .map(|ext| ext.eq_ignore_ascii_case(extension))
-            .unwrap_or(false);
+            .is_some_and(|ext| ext.eq_ignore_ascii_case(extension));
         if matches {
             out.push(path);
         }
@@ -347,26 +347,22 @@ fn prepare_home_with_keys(python_repo: &Path, target_home: &Path) -> bool {
 }
 
 fn files_equal(a: &Path, b: &Path) -> bool {
-    let meta_a = match fs::metadata(a) {
-        Ok(v) => v,
-        Err(_) => return false,
+    let Ok(meta_a) = fs::metadata(a) else {
+        return false;
     };
-    let meta_b = match fs::metadata(b) {
-        Ok(v) => v,
-        Err(_) => return false,
+    let Ok(meta_b) = fs::metadata(b) else {
+        return false;
     };
 
     if meta_a.len() != meta_b.len() {
         return false;
     }
 
-    let file_a = match fs::File::open(a) {
-        Ok(v) => v,
-        Err(_) => return false,
+    let Ok(file_a) = fs::File::open(a) else {
+        return false;
     };
-    let file_b = match fs::File::open(b) {
-        Ok(v) => v,
-        Err(_) => return false,
+    let Ok(file_b) = fs::File::open(b) else {
+        return false;
     };
 
     let mut reader_a = BufReader::new(file_a);
@@ -376,13 +372,11 @@ fn files_equal(a: &Path, b: &Path) -> bool {
     let mut buf_b = vec![0u8; 1024 * 1024];
 
     loop {
-        let read_a = match reader_a.read(&mut buf_a) {
-            Ok(v) => v,
-            Err(_) => return false,
+        let Ok(read_a) = reader_a.read(&mut buf_a) else {
+            return false;
         };
-        let read_b = match reader_b.read(&mut buf_b) {
-            Ok(v) => v,
-            Err(_) => return false,
+        let Ok(read_b) = reader_b.read(&mut buf_b) else {
+            return false;
         };
 
         if read_a != read_b {
@@ -417,10 +411,10 @@ fn assert_files_equal_or_panic(a: &Path, b: &Path, kind: Option<&str>) {
     if kind == Some("nsp") {
         let baseline_entries = nsp_entry_names(a);
         let rust_entries = nsp_entry_names(b);
-        details.push_str(&format!(
-            " baseline_entries={:?} rust_entries={:?}",
-            baseline_entries, rust_entries
-        ));
+        let _ = write!(
+            details,
+            " baseline_entries={baseline_entries:?} rust_entries={rust_entries:?}"
+        );
     }
 
     panic!("{details}");
@@ -457,13 +451,11 @@ fn first_diff_offset(a: &Path, b: &Path) -> Option<u64> {
 }
 
 fn nsp_entry_names(path: &Path) -> Vec<String> {
-    let data = match fs::read(path) {
-        Ok(v) => v,
-        Err(_) => return Vec::new(),
+    let Ok(data) = fs::read(path) else {
+        return Vec::new();
     };
-    let archive = match nsz_rs::container::nsp::NspArchive::from_bytes(&data) {
-        Ok(v) => v,
-        Err(_) => return Vec::new(),
+    let Ok(archive) = nsz_rs::container::nsp::NspArchive::from_bytes(&data) else {
+        return Vec::new();
     };
     archive
         .entries()

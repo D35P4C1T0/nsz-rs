@@ -57,7 +57,7 @@ fn ncz_native_decompress_roundtrip_block_stream() {
     fixture.push(20);
     fixture.extend_from_slice(&(1u32).to_le_bytes());
     fixture.extend_from_slice(&(payload.len() as u64).to_le_bytes());
-    fixture.extend_from_slice(&(compressed_block.len() as u32).to_le_bytes());
+    fixture.extend_from_slice(&u32::try_from(compressed_block.len()).unwrap().to_le_bytes());
     fixture.extend_from_slice(&compressed_block);
 
     let decompressed = nsz_rs::ncz::decompress::decompress_ncz_to_vec(&fixture).unwrap();

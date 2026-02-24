@@ -3,6 +3,7 @@ use crate::error::NszError;
 use crate::ops::OperationReport;
 use crate::parity::python_runner::{resolve_python_repo_root, run_nsz_cli};
 
+/// Runs create flow through Python `nsz` and reports the created container path.
 pub fn run(request: &CreateRequest) -> Result<OperationReport, NszError> {
     let output_file = request
         .output_file

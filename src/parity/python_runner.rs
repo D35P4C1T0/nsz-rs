@@ -4,6 +4,7 @@ use std::process::Command;
 
 use crate::error::NszError;
 
+/// Reads upstream Python `nsz` version from `setup.py`.
 pub fn query_version(repo_root: &str) -> Result<String, NszError> {
     let setup_path = Path::new(repo_root).join("setup.py");
     let setup_py = fs::read_to_string(&setup_path)?;
@@ -30,6 +31,7 @@ pub fn query_version(repo_root: &str) -> Result<String, NszError> {
     })
 }
 
+/// Resolves the Python baseline repository root from explicit path, env, or default.
 pub fn resolve_python_repo_root(explicit: Option<&Path>) -> PathBuf {
     if let Some(path) = explicit {
         return path.to_path_buf();
@@ -42,6 +44,7 @@ pub fn resolve_python_repo_root(explicit: Option<&Path>) -> PathBuf {
     PathBuf::from("/home/matteo/Documents/prog/python/nsz")
 }
 
+/// Executes Python `nsz.py` with the provided arguments.
 pub fn run_nsz_cli(repo_root: &Path, args: &[String]) -> Result<(), NszError> {
     let python_bin = std::env::var("NSZ_PYTHON_BIN").unwrap_or_else(|_| "python3".to_string());
     let output = Command::new(&python_bin)

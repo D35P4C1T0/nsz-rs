@@ -25,49 +25,23 @@ fn benchmark_python_vs_rust_on_same_inputs() {
     std::env::set_var("HOME", &baseline_home);
 
     let corpus_root = benchmark_corpus_root();
-    let compress_input =
-        match benchmark_input_from_env_or_corpus("NSZ_BENCH_COMPRESS_INPUT", &corpus_root, "nsp") {
-            Some(path) => path,
-            None => return,
-        };
+    let bench_level = benchmark_level();
+    let Some(compress_input) =
+        benchmark_input_from_env_or_corpus("NSZ_BENCH_COMPRESS_INPUT", &corpus_root, "nsp")
+    else {
+        return;
+    };
 
     let compress_baseline_out = temp_root.join("compress-baseline");
     let compress_rust_out = temp_root.join("compress-rust");
-    fs::create_dir_all(&compress_baseline_out).unwrap();
-    fs::create_dir_all(&compress_rust_out).unwrap();
-
-    let python_compress_elapsed = elapsed(|| {
-        nsz_rs::parity::python_runner::run_nsz_cli(
+    let (baseline_nsz_artifact, python_compress_elapsed, rust_compress_elapsed) =
+        run_compress_benchmark(
             &python_repo,
-            &[
-                "-C".to_string(),
-                "-o".to_string(),
-                compress_baseline_out.display().to_string(),
-                compress_input.display().to_string(),
-            ],
-        )
-    })
-    .unwrap();
-
-    let rust_compress_elapsed = elapsed(|| {
-        nsz_rs::compress(&nsz_rs::CompressRequest {
-            files: vec![compress_input.clone()],
-            output_dir: Some(compress_rust_out.clone()),
-            python_repo_root: Some(PathBuf::from("/does/not/exist")),
-            ..Default::default()
-        })
-        .map(|_| ())
-    })
-    .unwrap();
-
-    let compressed_name = compress_input
-        .file_name()
-        .and_then(|name| name.to_str())
-        .unwrap()
-        .replace(".nsp", ".nsz");
-    let baseline_nsz = compress_baseline_out.join(&compressed_name);
-    let rust_nsz = compress_rust_out.join(&compressed_name);
-    assert!(files_equal(&baseline_nsz, &rust_nsz));
+            &compress_input,
+            &compress_baseline_out,
+            &compress_rust_out,
+            bench_level,
+        );
 
     eprintln!(
         "[speed-bench][compress] input={} python_ms={} rust_ms={} speedup={:.3}x",
@@ -84,15 +58,104 @@ fn benchmark_python_vs_rust_on_same_inputs() {
 
     let decompress_input =
         benchmark_input_from_env_or_corpus("NSZ_BENCH_DECOMPRESS_INPUT", &corpus_root, "nsz")
-            .unwrap_or_else(|| baseline_nsz.clone());
+            .unwrap_or_else(|| baseline_nsz_artifact.clone());
     let decompress_baseline_out = temp_root.join("decompress-baseline");
     let decompress_rust_out = temp_root.join("decompress-rust");
-    fs::create_dir_all(&decompress_baseline_out).unwrap();
-    fs::create_dir_all(&decompress_rust_out).unwrap();
+    let (baseline_decompressed_nsp, python_decompress_elapsed, rust_decompress_elapsed) =
+        run_decompress_benchmark(
+            &python_repo,
+            &decompress_input,
+            &decompress_baseline_out,
+            &decompress_rust_out,
+        );
+    let rust_decompressed_nsp = decompress_rust_out.join(
+        decompress_input
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap()
+            .replace(".nsz", ".nsp"),
+    );
+    assert!(files_equal(
+        &baseline_decompressed_nsp,
+        &rust_decompressed_nsp
+    ));
+
+    eprintln!(
+        "[speed-bench][decompress] input={} python_ms={} rust_ms={} speedup={:.3}x",
+        decompress_input.display(),
+        python_decompress_elapsed.as_millis(),
+        rust_decompress_elapsed.as_millis(),
+        speedup_ratio(python_decompress_elapsed, rust_decompress_elapsed)
+    );
+
+    let _ = fs::remove_dir_all(temp_root);
+}
+
+fn run_compress_benchmark(
+    python_repo: &Path,
+    compress_input: &Path,
+    compress_baseline_out: &Path,
+    compress_rust_out: &Path,
+    bench_level: i32,
+) -> (PathBuf, Duration, Duration) {
+    fs::create_dir_all(compress_baseline_out).unwrap();
+    fs::create_dir_all(compress_rust_out).unwrap();
+
+    let python_compress_elapsed = elapsed(|| {
+        nsz_rs::parity::python_runner::run_nsz_cli(
+            python_repo,
+            &[
+                "-C".to_string(),
+                "-l".to_string(),
+                bench_level.to_string(),
+                "-o".to_string(),
+                compress_baseline_out.display().to_string(),
+                compress_input.display().to_string(),
+            ],
+        )
+    })
+    .unwrap();
+
+    let rust_compress_elapsed = elapsed(|| {
+        nsz_rs::compress(&nsz_rs::CompressRequest {
+            files: vec![compress_input.to_path_buf()],
+            output_dir: Some(compress_rust_out.to_path_buf()),
+            level: bench_level,
+            python_repo_root: Some(PathBuf::from("/does/not/exist")),
+            ..Default::default()
+        })
+        .map(|_| ())
+    })
+    .unwrap();
+
+    let compressed_name = compress_input
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap()
+        .replace(".nsp", ".nsz");
+    let baseline_nsz_artifact = compress_baseline_out.join(&compressed_name);
+    let rust_nsz_artifact = compress_rust_out.join(&compressed_name);
+    assert!(files_equal(&baseline_nsz_artifact, &rust_nsz_artifact));
+
+    (
+        baseline_nsz_artifact,
+        python_compress_elapsed,
+        rust_compress_elapsed,
+    )
+}
+
+fn run_decompress_benchmark(
+    python_repo: &Path,
+    decompress_input: &Path,
+    decompress_baseline_out: &Path,
+    decompress_rust_out: &Path,
+) -> (PathBuf, Duration, Duration) {
+    fs::create_dir_all(decompress_baseline_out).unwrap();
+    fs::create_dir_all(decompress_rust_out).unwrap();
 
     let python_decompress_elapsed = elapsed(|| {
         nsz_rs::parity::python_runner::run_nsz_cli(
-            &python_repo,
+            python_repo,
             &[
                 "-D".to_string(),
                 "-o".to_string(),
@@ -105,8 +168,8 @@ fn benchmark_python_vs_rust_on_same_inputs() {
 
     let rust_decompress_elapsed = elapsed(|| {
         nsz_rs::decompress(&nsz_rs::DecompressRequest {
-            files: vec![decompress_input.clone()],
-            output_dir: Some(decompress_rust_out.clone()),
+            files: vec![decompress_input.to_path_buf()],
+            output_dir: Some(decompress_rust_out.to_path_buf()),
             fix_padding: false,
             python_repo_root: Some(PathBuf::from("/does/not/exist")),
         })
@@ -119,19 +182,13 @@ fn benchmark_python_vs_rust_on_same_inputs() {
         .and_then(|name| name.to_str())
         .unwrap()
         .replace(".nsz", ".nsp");
-    let baseline_nsp = decompress_baseline_out.join(&decompressed_name);
-    let rust_nsp = decompress_rust_out.join(&decompressed_name);
-    assert!(files_equal(&baseline_nsp, &rust_nsp));
+    let baseline_decompressed_nsp = decompress_baseline_out.join(decompressed_name);
 
-    eprintln!(
-        "[speed-bench][decompress] input={} python_ms={} rust_ms={} speedup={:.3}x",
-        decompress_input.display(),
-        python_decompress_elapsed.as_millis(),
-        rust_decompress_elapsed.as_millis(),
-        speedup_ratio(python_decompress_elapsed, rust_decompress_elapsed)
-    );
-
-    let _ = fs::remove_dir_all(temp_root);
+    (
+        baseline_decompressed_nsp,
+        python_decompress_elapsed,
+        rust_decompress_elapsed,
+    )
 }
 
 fn elapsed<T, E>(run: impl FnOnce() -> Result<T, E>) -> Result<Duration, E> {
@@ -181,6 +238,13 @@ fn benchmark_corpus_root() -> PathBuf {
     PathBuf::from("/home/matteo/Documents/switch_games/Bad Cheese [NSP]")
 }
 
+fn benchmark_level() -> i32 {
+    std::env::var("NSZ_BENCH_LEVEL")
+        .ok()
+        .and_then(|value| value.parse::<i32>().ok())
+        .unwrap_or(18)
+}
+
 fn collect_files_with_extension(root: &Path, ext: &str) -> Vec<PathBuf> {
     let mut files = Vec::new();
     collect_recursive(root, ext, &mut files);
@@ -202,8 +266,7 @@ fn collect_recursive(root: &Path, ext: &str, files: &mut Vec<PathBuf>) {
         if path
             .extension()
             .and_then(|value| value.to_str())
-            .map(|value| value.eq_ignore_ascii_case(ext))
-            == Some(true)
+            .is_some_and(|value| value.eq_ignore_ascii_case(ext))
         {
             files.push(path);
         }
@@ -233,13 +296,11 @@ fn prepare_home_with_keys(python_repo: &Path, home_dir: &Path) -> bool {
 }
 
 fn files_equal(left: &Path, right: &Path) -> bool {
-    let left_bytes = match fs::read(left) {
-        Ok(bytes) => bytes,
-        Err(_) => return false,
+    let Ok(left_bytes) = fs::read(left) else {
+        return false;
     };
-    let right_bytes = match fs::read(right) {
-        Ok(bytes) => bytes,
-        Err(_) => return false,
+    let Ok(right_bytes) = fs::read(right) else {
+        return false;
     };
     left_bytes == right_bytes
 }

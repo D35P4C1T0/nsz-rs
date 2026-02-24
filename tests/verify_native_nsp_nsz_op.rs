@@ -39,19 +39,19 @@ fn verify_uses_native_path_for_nsz_inputs() {
     let hash = format!("{:x}", Sha256::digest(&nca));
 
     let compressed = zstd::stream::encode_all(&payload[..], 1).unwrap();
-    let mut ncz = vec![0u8; 0x4000];
-    ncz.extend_from_slice(b"NCZSECTN");
-    ncz.extend_from_slice(&(1u64).to_le_bytes());
-    ncz.extend_from_slice(&(0x4000u64).to_le_bytes());
-    ncz.extend_from_slice(&(payload.len() as u64).to_le_bytes());
-    ncz.extend_from_slice(&(0u64).to_le_bytes());
-    ncz.extend_from_slice(&0u64.to_le_bytes());
-    ncz.extend_from_slice(&[0u8; 16]);
-    ncz.extend_from_slice(&[0u8; 16]);
-    ncz.extend_from_slice(&compressed);
+    let mut ncz_blob = vec![0u8; 0x4000];
+    ncz_blob.extend_from_slice(b"NCZSECTN");
+    ncz_blob.extend_from_slice(&(1u64).to_le_bytes());
+    ncz_blob.extend_from_slice(&(0x4000u64).to_le_bytes());
+    ncz_blob.extend_from_slice(&(payload.len() as u64).to_le_bytes());
+    ncz_blob.extend_from_slice(&(0u64).to_le_bytes());
+    ncz_blob.extend_from_slice(&0u64.to_le_bytes());
+    ncz_blob.extend_from_slice(&[0u8; 16]);
+    ncz_blob.extend_from_slice(&[0u8; 16]);
+    ncz_blob.extend_from_slice(&compressed);
 
     let ncz_name = format!("{hash}.ncz");
-    let nsz_bytes = build_pfs0(&[(ncz_name.as_str(), &ncz), ("dummy.tik", b"tik")]);
+    let nsz_bytes = build_pfs0(&[(ncz_name.as_str(), &ncz_blob), ("dummy.tik", b"tik")]);
 
     let root =
         std::env::temp_dir().join(format!("nsz-rs-native-verify-nsz-{}", std::process::id()));
@@ -76,7 +76,7 @@ fn build_pfs0(entries: &[(&str, &[u8])]) -> Vec<u8> {
     let mut string_table = Vec::new();
     let mut string_offsets = Vec::with_capacity(entries.len());
     for (name, _) in entries {
-        string_offsets.push(string_table.len() as u32);
+        string_offsets.push(u32::try_from(string_table.len()).unwrap());
         string_table.extend_from_slice(name.as_bytes());
         string_table.push(0);
     }
@@ -84,8 +84,8 @@ fn build_pfs0(entries: &[(&str, &[u8])]) -> Vec<u8> {
     let header_size = 16 + entries.len() * 24 + string_table.len();
     let mut out = Vec::new();
     out.extend_from_slice(b"PFS0");
-    out.extend_from_slice(&(entries.len() as u32).to_le_bytes());
-    out.extend_from_slice(&(string_table.len() as u32).to_le_bytes());
+    out.extend_from_slice(&u32::try_from(entries.len()).unwrap().to_le_bytes());
+    out.extend_from_slice(&u32::try_from(string_table.len()).unwrap().to_le_bytes());
     out.extend_from_slice(&0u32.to_le_bytes());
 
     let mut offset = 0u64;

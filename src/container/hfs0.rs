@@ -2,12 +2,19 @@ use crate::error::NszError;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Hfs0Entry {
+    /// Entry file name.
     pub name: String,
+    /// Entry payload offset relative to the data region.
     pub offset: u64,
+    /// Entry payload byte size.
     pub size: u64,
+    /// String-table offset for `name`.
     pub string_table_offset: u32,
+    /// Size of the hashed region for this entry.
     pub hashed_region_size: u32,
+    /// Reserved HFS0 field bytes.
     pub reserved: [u8; 8],
+    /// Entry hash bytes from the HFS0 table.
     pub hash: [u8; 32],
 }
 
@@ -19,6 +26,7 @@ pub struct Hfs0Archive {
 }
 
 impl Hfs0Archive {
+    /// Parses a full HFS0 image from bytes.
     pub fn from_bytes(data: &[u8]) -> Result<Self, NszError> {
         if data.len() < 16 {
             return Err(NszError::ContainerFormat {
@@ -133,14 +141,17 @@ impl Hfs0Archive {
         })
     }
 
+    /// Returns parsed entry metadata in archive order.
     pub fn entries(&self) -> &[Hfs0Entry] {
         &self.entries
     }
 
+    /// Returns the original string table size from the parsed header.
     pub fn string_table_size(&self) -> u32 {
         self.string_table_size
     }
 
+    /// Returns the absolute offset of the first payload byte.
     pub fn first_file_offset(&self) -> u64 {
         self.entries
             .iter()
@@ -149,6 +160,7 @@ impl Hfs0Archive {
             .unwrap_or(self.data_start)
     }
 
+    /// Returns a borrowed payload slice for one archive entry.
     pub fn entry_bytes<'a>(&self, data: &'a [u8], entry: &Hfs0Entry) -> &'a [u8] {
         let start = (self.data_start + entry.offset) as usize;
         let end = start + entry.size as usize;
@@ -156,6 +168,7 @@ impl Hfs0Archive {
     }
 }
 
+/// Encodes entries into an HFS0 container, preserving first-file offset semantics.
 pub fn encode_hfs0<B: AsRef<[u8]>>(
     entries: &[(String, B)],
     first_file_offset: u64,
@@ -220,21 +233,22 @@ pub fn encode_hfs0<B: AsRef<[u8]>>(
     header.extend_from_slice(&string_table);
     header.resize(header_size, 0);
 
-    let first_file_offset = usize::try_from(first_file_offset).map_err(|_| {
-        NszError::ContainerFormat {
+    let first_file_offset =
+        usize::try_from(first_file_offset).map_err(|_| NszError::ContainerFormat {
             message: "HFS0 first file offset does not fit usize".to_string(),
-        }
-    })?;
-    let payload_size = payloads.iter().try_fold(0usize, |acc, payload| {
-        acc.checked_add(payload.len()).ok_or_else(|| NszError::ContainerFormat {
-            message: "HFS0 payload size overflow".to_string(),
-        })
-    })?;
-    let total_size = first_file_offset
-        .checked_add(payload_size)
-        .ok_or_else(|| NszError::ContainerFormat {
-            message: "HFS0 output size overflow".to_string(),
         })?;
+    let payload_size = payloads.iter().try_fold(0usize, |acc, payload| {
+        acc.checked_add(payload.len())
+            .ok_or_else(|| NszError::ContainerFormat {
+                message: "HFS0 payload size overflow".to_string(),
+            })
+    })?;
+    let total_size =
+        first_file_offset
+            .checked_add(payload_size)
+            .ok_or_else(|| NszError::ContainerFormat {
+                message: "HFS0 output size overflow".to_string(),
+            })?;
 
     let mut out = Vec::with_capacity(total_size);
     out.extend_from_slice(&header);

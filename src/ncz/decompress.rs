@@ -6,13 +6,19 @@ const UNCOMPRESSABLE_HEADER_SIZE: usize = 0x4000;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NczSection {
+    /// Section offset in the decompressed NCA payload.
     pub offset: u64,
+    /// Section byte size.
     pub size: u64,
+    /// Section crypto mode identifier.
     pub crypto_type: u64,
+    /// Section AES key material.
     pub crypto_key: [u8; 16],
+    /// Section AES counter bytes.
     pub crypto_counter: [u8; 16],
 }
 
+/// Returns the decompressed NCA size encoded by an NCZ payload.
 pub fn decompressed_nca_size_from_bytes(data: &[u8]) -> Result<u64, NszError> {
     let (sections, _) = parse_sections_with_end(data)?;
     let payload_size = payload_size_from_sections(&sections)?;
@@ -23,6 +29,7 @@ pub fn decompressed_nca_size_from_bytes(data: &[u8]) -> Result<u64, NszError> {
         })
 }
 
+/// Decompresses an NCZ image back into raw NCA bytes.
 pub fn decompress_ncz_to_vec(data: &[u8]) -> Result<Vec<u8>, NszError> {
     let (sections, stream_offset) = parse_sections_with_end(data)?;
 
@@ -79,7 +86,7 @@ pub fn decompress_ncz_to_vec(data: &[u8]) -> Result<Vec<u8>, NszError> {
                 &mut output[write_start..],
                 &section.crypto_key,
                 &section.crypto_counter,
-                section.offset as u128,
+                u128::from(section.offset),
             );
         }
         read_cursor = end;
@@ -88,6 +95,7 @@ pub fn decompress_ncz_to_vec(data: &[u8]) -> Result<Vec<u8>, NszError> {
     Ok(output)
 }
 
+/// Parses the NCZ section table without decoding payload bytes.
 pub fn parse_sections(data: &[u8]) -> Result<Vec<NczSection>, NszError> {
     let (sections, _) = parse_sections_with_end(data)?;
     Ok(sections)

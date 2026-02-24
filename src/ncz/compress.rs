@@ -8,7 +8,7 @@ use crate::container::nca::{NcaCompressionPlan, NcaEncryptionSection};
 use crate::error::NszError;
 
 const UNCOMPRESSABLE_HEADER_SIZE: usize = 0x4000;
-const CHUNK_SIZE: usize = 0x1000000;
+const CHUNK_SIZE: usize = 0x0100_0000;
 type AesCtr = ctr::Ctr128BE<Aes128>;
 
 #[derive(Debug, Clone, Copy)]
@@ -21,10 +21,12 @@ struct PayloadPart {
     encrypted: bool,
 }
 
+/// Compresses an NCA into NCZ using default non-planned behavior.
 pub fn compress_nca_to_ncz_vec(data: &[u8], level: i32) -> Result<Vec<u8>, NszError> {
     compress_nca_to_ncz_vec_with_plan(data, level, false, 1, None)
 }
 
+/// Compresses an NCA into NCZ using optional crypto section planning metadata.
 pub fn compress_nca_to_ncz_vec_with_plan(
     data: &[u8],
     level: i32,
@@ -59,6 +61,7 @@ pub fn compress_nca_to_ncz_vec_with_plan(
     Ok(out)
 }
 
+/// Compresses an NCA into block-based NCZ (`NCZBLOCK`) using optional section planning.
 pub fn compress_nca_to_ncz_block_vec_with_plan(
     data: &[u8],
     level: i32,
@@ -115,6 +118,8 @@ fn compress_with_plan(
     threads: i32,
     plan: &NcaCompressionPlan,
 ) -> Result<Vec<u8>, NszError> {
+    let profile = std::env::var("NSZ_PROFILE_COMPRESS").ok().as_deref() == Some("1");
+    let started = std::time::Instant::now();
     let mut output = Vec::with_capacity(data.len());
     output.extend_from_slice(&data[..UNCOMPRESSABLE_HEADER_SIZE]);
     output.extend_from_slice(b"NCZSECTN");
@@ -137,11 +142,17 @@ fn compress_with_plan(
     }
 
     let mut scratch = Vec::with_capacity(CHUNK_SIZE);
+    let mut payload_bytes = 0u64;
+    let mut aes_elapsed = std::time::Duration::default();
+    let mut write_elapsed = std::time::Duration::default();
     for part in &parts {
-        let mut cipher =
-            (part.encrypted && matches!(part.crypto_type, 3 | 4)).then(|| {
-                init_aes_ctr(&part.crypto_key, &part.crypto_counter, part.offset as u128)
-            });
+        let mut cipher = (part.encrypted && matches!(part.crypto_type, 3 | 4)).then(|| {
+            init_aes_ctr(
+                &part.crypto_key,
+                &part.crypto_counter,
+                u128::from(part.offset),
+            )
+        });
         let mut processed = 0u64;
         while processed < part.size {
             let to_read = (part.size - processed).min(CHUNK_SIZE as u64) as usize;
@@ -156,16 +167,35 @@ fn compress_with_plan(
             if let Some(cipher) = cipher.as_mut() {
                 scratch.clear();
                 scratch.extend_from_slice(&data[start..end]);
+                let aes_started = std::time::Instant::now();
                 cipher.apply_keystream(&mut scratch);
+                aes_elapsed += aes_started.elapsed();
+                let write_started = std::time::Instant::now();
                 encoder.write_all(&scratch)?;
+                write_elapsed += write_started.elapsed();
             } else {
+                let write_started = std::time::Instant::now();
                 encoder.write_all(&data[start..end])?;
+                write_elapsed += write_started.elapsed();
             }
+            payload_bytes = payload_bytes.saturating_add(to_read as u64);
             processed = processed.saturating_add(to_read as u64);
         }
     }
-
-    Ok(encoder.finish()?)
+    let finish_started = std::time::Instant::now();
+    let result = encoder.finish()?;
+    let finish_elapsed = finish_started.elapsed();
+    if profile {
+        eprintln!(
+            "[profile][ncz_solid] payload_bytes={} aes_ms={} write_ms={} finish_ms={} total_ms={}",
+            payload_bytes,
+            aes_elapsed.as_millis(),
+            write_elapsed.as_millis(),
+            finish_elapsed.as_millis(),
+            started.elapsed().as_millis()
+        );
+    }
+    Ok(result)
 }
 
 fn build_parts(plan: &NcaCompressionPlan) -> Vec<PayloadPart> {
@@ -243,10 +273,13 @@ fn compress_block_with_sections(
     let mut scratch = Vec::with_capacity(CHUNK_SIZE);
 
     for part in parts {
-        let mut cipher =
-            (part.encrypted && matches!(part.crypto_type, 3 | 4)).then(|| {
-                init_aes_ctr(&part.crypto_key, &part.crypto_counter, part.offset as u128)
-            });
+        let mut cipher = (part.encrypted && matches!(part.crypto_type, 3 | 4)).then(|| {
+            init_aes_ctr(
+                &part.crypto_key,
+                &part.crypto_counter,
+                u128::from(part.offset),
+            )
+        });
         let mut processed = 0u64;
         while processed < part.size {
             let to_read = (part.size - processed).min(CHUNK_SIZE as u64) as usize;

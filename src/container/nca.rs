@@ -15,12 +15,16 @@ const BKTR_HEADER_SIZE: u64 = 0x4000;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NcaCompressionMeta {
+    /// NCA content type from the decrypted header.
     pub content_type: u8,
+    /// Full NCA size from header metadata.
     pub size: u64,
+    /// Whether the NCA is in packed form.
     pub packed: bool,
 }
 
 impl NcaCompressionMeta {
+    /// Returns whether this NCA metadata is eligible for NCZ compression.
     pub fn is_compressible(&self) -> bool {
         matches!(self.content_type, 0x00 | 0x05) && self.packed
     }
@@ -28,29 +32,41 @@ impl NcaCompressionMeta {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NcaEncryptionSection {
+    /// Section offset in decompressed NCA space.
     pub offset: u64,
+    /// Section byte size.
     pub size: u64,
+    /// Section crypto mode.
     pub crypto_type: u64,
+    /// Section AES key bytes.
     pub crypto_key: [u8; 16],
+    /// Section AES counter bytes.
     pub crypto_counter: [u8; 16],
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NcaCompressionPlan {
+    /// Global NCA metadata used for compression decisions.
     pub meta: NcaCompressionMeta,
+    /// Offset of the first crypto section.
     pub offset_first_section: u64,
+    /// Per-section crypto configuration.
     pub sections: Vec<NcaEncryptionSection>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TicketRecord {
+    /// Rights ID extracted from the ticket.
     pub rights_id: [u8; 16],
+    /// Encrypted title key extracted from the ticket.
     pub encrypted_title_key: [u8; 16],
+    /// Master-key revision for title-key derivation.
     pub master_key_revision: u8,
 }
 
 #[derive(Debug, Clone)]
 pub struct NcaKeySet {
+    /// NCA header key used for header decryption.
     pub header_key: [u8; 32],
     aes_kek_generation_source: [u8; 16],
     aes_key_generation_source: [u8; 16],
@@ -61,6 +77,7 @@ pub struct NcaKeySet {
 }
 
 impl NcaKeySet {
+    /// Parses key material from a `keys.txt`-style content string.
     pub fn from_keys_str(content: &str) -> Result<Self, NszError> {
         let mut raw = HashMap::new();
         for line in content.lines() {
@@ -75,8 +92,8 @@ impl NcaKeySet {
         }
 
         let header_key = parse_named_key::<32>(&raw, "header_key")?;
-        let aes_kek_generation_source = parse_named_key::<16>(&raw, "aes_kek_generation_source")?;
-        let aes_key_generation_source = parse_named_key::<16>(&raw, "aes_key_generation_source")?;
+        let aes_kek_gen_source = parse_named_key::<16>(&raw, "aes_kek_generation_source")?;
+        let aes_key_gen_source = parse_named_key::<16>(&raw, "aes_key_generation_source")?;
         let titlekek_source = parse_named_key::<16>(&raw, "titlekek_source")?;
         let key_area_key_application_source =
             parse_named_key::<16>(&raw, "key_area_key_application_source")?;
@@ -114,8 +131,8 @@ impl NcaKeySet {
 
         Ok(Self {
             header_key,
-            aes_kek_generation_source,
-            aes_key_generation_source,
+            aes_kek_generation_source: aes_kek_gen_source,
+            aes_key_generation_source: aes_key_gen_source,
             titlekek_source,
             key_area_key_application_source,
             master_keys,
@@ -183,6 +200,7 @@ impl NcaKeySet {
     }
 }
 
+/// Parses a ticket blob and extracts the fields needed for title-key decryption.
 pub fn parse_ticket_record(data: &[u8]) -> Result<TicketRecord, NszError> {
     if data.len() < 4 {
         return Err(NszError::ContainerFormat {
@@ -192,9 +210,9 @@ pub fn parse_ticket_record(data: &[u8]) -> Result<TicketRecord, NszError> {
 
     let signature_type = u32::from_le_bytes(data[0..4].try_into().unwrap());
     let signature_size = match signature_type {
-        0x010000 | 0x010003 => 0x200usize,
-        0x010001 | 0x010004 => 0x100usize,
-        0x010002 | 0x010005 => 0x3Cusize,
+        0x0001_0000 | 0x0001_0003 => 0x200usize,
+        0x0001_0001 | 0x0001_0004 => 0x100usize,
+        0x0001_0002 | 0x0001_0005 => 0x3Cusize,
         _ => {
             return Err(NszError::ContainerFormat {
                 message: format!("unsupported ticket signature type: {signature_type:#x}"),
@@ -228,6 +246,7 @@ pub fn parse_ticket_record(data: &[u8]) -> Result<TicketRecord, NszError> {
     })
 }
 
+/// Reads NCA metadata used to decide whether the file should be compressed.
 pub fn analyze_for_compression(
     data: &[u8],
     header_key: &[u8; 32],
@@ -236,6 +255,7 @@ pub fn analyze_for_compression(
     Ok(header.meta())
 }
 
+/// Builds per-section crypto metadata required for byte-parity NCZ compression.
 pub fn build_compression_plan(
     data: &[u8],
     keys: &NcaKeySet,
@@ -248,12 +268,11 @@ pub fn build_compression_plan(
     let offset_first_section = header
         .sections
         .first()
-        .map(|s| s.offset)
-        .unwrap_or(UNCOMPRESSABLE_HEADER_SIZE);
+        .map_or(UNCOMPRESSABLE_HEADER_SIZE, |section| section.offset);
     for section in &header.sections {
         let normalized_crypto_type = match section.crypto_type {
             4 => 3u64,
-            value => value as u64,
+            value => u64::from(value),
         };
         if section.bktr_subsection_size > 0 {
             let entries = parse_bktr_subsection_entries(data, section, &title_key)?;
@@ -395,13 +414,14 @@ fn parse_nca_header(data: &[u8], header_key: &[u8; 32]) -> Result<ParsedNcaHeade
     let mut sections = Vec::new();
     for section_index in 0..4 {
         let table_cursor = 0x240usize + section_index * 0x10;
-        let media_offset =
-            u32::from_le_bytes(header[table_cursor..table_cursor + 4].try_into().unwrap()) as u64;
-        let media_end_offset = u32::from_le_bytes(
+        let media_offset = u64::from(u32::from_le_bytes(
+            header[table_cursor..table_cursor + 4].try_into().unwrap(),
+        ));
+        let media_end_offset = u64::from(u32::from_le_bytes(
             header[table_cursor + 4..table_cursor + 8]
                 .try_into()
                 .unwrap(),
-        ) as u64;
+        ));
         let offset = media_offset.saturating_mul(NCA_MEDIA_SIZE);
         let end = media_end_offset.saturating_mul(NCA_MEDIA_SIZE);
         if end <= offset || end > size {
@@ -550,7 +570,7 @@ fn read_section_range(
             &mut bytes,
             title_key,
             &section.crypto_counter,
-            absolute_offset as u128,
+            u128::from(absolute_offset),
         );
     }
     Ok(bytes)
@@ -584,12 +604,12 @@ fn parse_hex_key<const N: usize>(value: &str) -> Option<[u8; N]> {
 fn generate_kek(
     src: &[u8; 16],
     master_key: &[u8; 16],
-    kek_seed: &[u8; 16],
-    key_seed: &[u8; 16],
+    intermediate_kek_seed: &[u8; 16],
+    final_key_seed: &[u8; 16],
 ) -> Result<[u8; 16], NszError> {
-    let kek = aes_ecb_decrypt_block(master_key, kek_seed)?;
+    let kek = aes_ecb_decrypt_block(master_key, intermediate_kek_seed)?;
     let src_kek = aes_ecb_decrypt_block(&kek, src)?;
-    aes_ecb_decrypt_block(&src_kek, key_seed)
+    aes_ecb_decrypt_block(&src_kek, final_key_seed)
 }
 
 fn aes_ecb_decrypt_block(key: &[u8; 16], block: &[u8; 16]) -> Result<[u8; 16], NszError> {

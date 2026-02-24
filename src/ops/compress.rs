@@ -2,6 +2,7 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::time::Instant;
 
 use crate::config::CompressRequest;
 use crate::container::hfs0::{encode_hfs0, Hfs0Archive};
@@ -15,6 +16,7 @@ use crate::parity::python_runner::{resolve_python_repo_root, run_nsz_cli};
 const UNCOMPRESSABLE_HEADER_SIZE: usize = 0x4000;
 const XCI_HFS0_FIRST_FILE_OFFSET: u64 = 0x8000;
 
+/// Compresses supported inputs natively and falls back to Python `nsz` for unsupported formats.
 pub fn run(request: &CompressRequest) -> Result<OperationReport, NszError> {
     if request.files.is_empty() {
         return Ok(OperationReport::default());
@@ -40,7 +42,6 @@ pub fn run(request: &CompressRequest) -> Result<OperationReport, NszError> {
                     })?;
                 fs::write(&out_file, output)?;
                 processed_files.push(out_file);
-                continue;
             }
             Some("xci") => {
                 let input = fs::read(file)?;
@@ -51,7 +52,6 @@ pub fn run(request: &CompressRequest) -> Result<OperationReport, NszError> {
                     })?;
                 fs::write(&out_file, output)?;
                 processed_files.push(out_file);
-                continue;
             }
             Some("nca") => {
                 let input = fs::read(file)?;
@@ -72,7 +72,6 @@ pub fn run(request: &CompressRequest) -> Result<OperationReport, NszError> {
                     })?;
                 fs::write(&out_file, output)?;
                 processed_files.push(out_file);
-                continue;
             }
             _ => fallback_files.push(file.clone()),
         }
@@ -112,8 +111,13 @@ fn compress_nsp_to_nsz(
     keyset: Option<&NcaKeySet>,
     solid_threads: i32,
 ) -> Result<Vec<u8>, NszError> {
+    let profile = std::env::var("NSZ_PROFILE_COMPRESS").ok().as_deref() == Some("1");
+    let total_started = Instant::now();
     let archive = NspArchive::from_bytes(data)?;
+    let parse_elapsed = total_started.elapsed();
+    let tickets_started = Instant::now();
     let tickets = collect_nsp_tickets(&archive, data);
+    let tickets_elapsed = tickets_started.elapsed();
     let largest_convertible_nca = archive
         .entries()
         .iter()
@@ -126,6 +130,11 @@ fn compress_nsp_to_nsz(
         .max();
     let mut output_entries: Vec<(String, Cow<'_, [u8]>)> =
         Vec::with_capacity(archive.entries().len());
+    let mut converted_entries = 0usize;
+    let mut converted_bytes = 0u64;
+    let mut passthrough_entries = 0usize;
+    let mut passthrough_bytes = 0u64;
+    let mut convert_elapsed = std::time::Duration::default();
 
     for entry in archive.entries() {
         let entry_bytes = archive.entry_bytes(data, entry);
@@ -155,6 +164,7 @@ fn compress_nsp_to_nsz(
                         }
                     }
                 });
+            let nca_started = Instant::now();
             let output = crate::ncz::compress::compress_nca_to_ncz_vec_with_plan(
                 entry_bytes,
                 request.level,
@@ -162,17 +172,40 @@ fn compress_nsp_to_nsz(
                 solid_threads,
                 plan.as_ref(),
             )?;
+            convert_elapsed += nca_started.elapsed();
+            converted_entries += 1;
+            converted_bytes = converted_bytes.saturating_add(entry.size);
             output_entries.push((name, Cow::Owned(output)));
         } else {
+            passthrough_entries += 1;
+            passthrough_bytes = passthrough_bytes.saturating_add(entry.size);
             output_entries.push((entry.name.clone(), Cow::Borrowed(entry_bytes)));
         }
     }
 
-    encode_pfs0(
+    let encode_started = Instant::now();
+    let encoded = encode_pfs0(
         &output_entries,
         archive.first_file_offset(),
         archive.string_table_size(),
-    )
+    )?;
+    let encode_elapsed = encode_started.elapsed();
+    if profile {
+        eprintln!(
+            "[profile][compress_nsp] entries={} converted_entries={} converted_bytes={} passthrough_entries={} passthrough_bytes={} parse_ms={} tickets_ms={} convert_ms={} encode_ms={} total_ms={}",
+            archive.entries().len(),
+            converted_entries,
+            converted_bytes,
+            passthrough_entries,
+            passthrough_bytes,
+            parse_elapsed.as_millis(),
+            tickets_elapsed.as_millis(),
+            convert_elapsed.as_millis(),
+            encode_elapsed.as_millis(),
+            total_started.elapsed().as_millis()
+        );
+    }
+    Ok(encoded)
 }
 
 fn compress_xci_to_xcz(
@@ -337,7 +370,11 @@ fn should_convert_nca_entry(
     header_key: Option<&[u8; 32]>,
 ) -> bool {
     let name_lower = name.to_ascii_lowercase();
-    if !name_lower.ends_with(".nca") || name_lower.ends_with(".cnmt.nca") {
+    let has_nca_ext = Path::new(name)
+        .extension()
+        .and_then(std::ffi::OsStr::to_str)
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("nca"));
+    if !has_nca_ext || name_lower.ends_with(".cnmt.nca") {
         return false;
     }
     if bytes.len() <= UNCOMPRESSABLE_HEADER_SIZE {
@@ -358,7 +395,7 @@ fn should_convert_nca_entry(
     Some(size) == fallback_largest_size
 }
 
-fn effective_solid_threads(request_threads: i32) -> i32 {
+const fn effective_solid_threads(request_threads: i32) -> i32 {
     if request_threads > 0 {
         request_threads
     } else {

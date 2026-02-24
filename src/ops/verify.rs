@@ -9,6 +9,7 @@ use crate::error::NszError;
 use crate::ops::VerifyReport;
 use crate::parity::python_runner::{resolve_python_repo_root, run_nsz_cli};
 
+/// Verifies supported inputs natively and falls back to Python `nsz` for unknown formats.
 pub fn run(request: &VerifyRequest) -> Result<VerifyReport, NszError> {
     let repo_root = resolve_python_repo_root(request.python_repo_root.as_deref());
     let mut verified_files = Vec::new();
@@ -187,6 +188,5 @@ fn normalized_extension(path: &Path) -> Option<&str> {
 fn is_cnmt_nca_name(path: &Path) -> bool {
     path.file_name()
         .and_then(|name| name.to_str())
-        .map(|name| name.to_ascii_lowercase().ends_with(".cnmt.nca"))
-        .unwrap_or(false)
+        .is_some_and(|name| name.to_ascii_lowercase().ends_with(".cnmt.nca"))
 }

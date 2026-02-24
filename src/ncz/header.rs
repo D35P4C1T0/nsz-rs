@@ -2,16 +2,24 @@ use crate::error::NszError;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BlockHeader {
+    /// NCZ block header format version.
     pub version: u8,
+    /// NCZ block type marker.
     pub block_type: u8,
+    /// Reserved byte.
     pub unused: u8,
+    /// Base-2 exponent of block size.
     pub block_size_exponent: u8,
+    /// Number of blocks in the stream.
     pub number_of_blocks: u32,
+    /// Total decompressed payload size.
     pub decompressed_size: u64,
+    /// Per-block compressed byte sizes.
     pub compressed_block_sizes: Vec<u32>,
 }
 
 impl BlockHeader {
+    /// Parses an `NCZBLOCK` header and compressed block size table.
     pub fn from_bytes(data: &[u8]) -> Result<Self, NszError> {
         if data.len() < 24 {
             return Err(NszError::ContainerFormat {
@@ -57,6 +65,7 @@ impl BlockHeader {
         })
     }
 
+    /// Serializes this block header back to binary form.
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut out = Vec::with_capacity(24 + self.compressed_block_sizes.len() * 4);
         out.extend_from_slice(b"NCZBLOCK");

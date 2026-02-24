@@ -115,25 +115,21 @@ fn assert_files_equal_or_panic(left: &Path, right: &Path) {
 }
 
 fn files_equal(left: &Path, right: &Path) -> bool {
-    let left_meta = match fs::metadata(left) {
-        Ok(v) => v,
-        Err(_) => return false,
+    let Ok(left_meta) = fs::metadata(left) else {
+        return false;
     };
-    let right_meta = match fs::metadata(right) {
-        Ok(v) => v,
-        Err(_) => return false,
+    let Ok(right_meta) = fs::metadata(right) else {
+        return false;
     };
     if left_meta.len() != right_meta.len() {
         return false;
     }
 
-    let left_file = match fs::File::open(left) {
-        Ok(v) => v,
-        Err(_) => return false,
+    let Ok(left_file) = fs::File::open(left) else {
+        return false;
     };
-    let right_file = match fs::File::open(right) {
-        Ok(v) => v,
-        Err(_) => return false,
+    let Ok(right_file) = fs::File::open(right) else {
+        return false;
     };
 
     let mut left_reader = BufReader::new(left_file);
@@ -142,13 +138,11 @@ fn files_equal(left: &Path, right: &Path) -> bool {
     let mut right_buf = vec![0u8; 1024 * 1024];
 
     loop {
-        let read_left = match left_reader.read(&mut left_buf) {
-            Ok(v) => v,
-            Err(_) => return false,
+        let Ok(read_left) = left_reader.read(&mut left_buf) else {
+            return false;
         };
-        let read_right = match right_reader.read(&mut right_buf) {
-            Ok(v) => v,
-            Err(_) => return false,
+        let Ok(read_right) = right_reader.read(&mut right_buf) else {
+            return false;
         };
         if read_left != read_right {
             return false;

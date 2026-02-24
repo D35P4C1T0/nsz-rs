@@ -56,7 +56,7 @@ fn build_pfs0(entries: &[(&str, &[u8])]) -> Vec<u8> {
     let mut string_table = Vec::new();
     let mut string_offsets = Vec::with_capacity(entries.len());
     for (name, _) in entries {
-        string_offsets.push(string_table.len() as u32);
+        string_offsets.push(u32::try_from(string_table.len()).unwrap());
         string_table.extend_from_slice(name.as_bytes());
         string_table.push(0);
     }
@@ -64,8 +64,8 @@ fn build_pfs0(entries: &[(&str, &[u8])]) -> Vec<u8> {
     let header_size = 16 + entries.len() * 24 + string_table.len();
     let mut out = Vec::new();
     out.extend_from_slice(b"PFS0");
-    out.extend_from_slice(&(entries.len() as u32).to_le_bytes());
-    out.extend_from_slice(&(string_table.len() as u32).to_le_bytes());
+    out.extend_from_slice(&u32::try_from(entries.len()).unwrap().to_le_bytes());
+    out.extend_from_slice(&u32::try_from(string_table.len()).unwrap().to_le_bytes());
     out.extend_from_slice(&0u32.to_le_bytes());
 
     let mut offset = 0u64;
@@ -94,8 +94,14 @@ fn parse_pfs0_entries(data: &[u8]) -> std::collections::BTreeMap<String, Vec<u8>
     let mut entries = Vec::with_capacity(file_count);
     let mut cursor = 16usize;
     for _ in 0..file_count {
-        let offset = u64::from_le_bytes(data[cursor..cursor + 8].try_into().unwrap()) as usize;
-        let size = u64::from_le_bytes(data[cursor + 8..cursor + 16].try_into().unwrap()) as usize;
+        let offset = usize::try_from(u64::from_le_bytes(
+            data[cursor..cursor + 8].try_into().unwrap(),
+        ))
+        .unwrap();
+        let size = usize::try_from(u64::from_le_bytes(
+            data[cursor + 8..cursor + 16].try_into().unwrap(),
+        ))
+        .unwrap();
         let string_offset =
             u32::from_le_bytes(data[cursor + 16..cursor + 20].try_into().unwrap()) as usize;
         entries.push((offset, size, string_offset));

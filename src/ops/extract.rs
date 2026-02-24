@@ -6,6 +6,7 @@ use crate::error::NszError;
 use crate::ops::OperationReport;
 use crate::parity::python_runner::{resolve_python_repo_root, run_nsz_cli};
 
+/// Runs extract flow through Python `nsz` and reports produced output paths.
 pub fn run(request: &ExtractRequest) -> Result<OperationReport, NszError> {
     if request.files.is_empty() {
         return Ok(OperationReport::default());
@@ -37,13 +38,14 @@ pub fn run(request: &ExtractRequest) -> Result<OperationReport, NszError> {
         .iter()
         .map(|file| {
             let stem = file.file_stem().unwrap_or_default();
-            if let Some(out_dir) = &request.output_dir {
-                out_dir.join(stem)
-            } else {
-                file.parent()
-                    .unwrap_or_else(|| std::path::Path::new("."))
-                    .join(stem)
-            }
+            request.output_dir.as_ref().map_or_else(
+                || {
+                    file.parent()
+                        .unwrap_or_else(|| std::path::Path::new("."))
+                        .join(stem)
+                },
+                |out_dir| out_dir.join(stem),
+            )
         })
         .collect::<Vec<PathBuf>>();
 

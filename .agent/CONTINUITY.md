@@ -6,32 +6,38 @@ Add dated entries with provenance tags per AGENTS.md: [USER], [CODE], [TOOL], [A
 ## Snapshot
 
 Goal: 2026-02-22 [USER] Reimplement Python `nsz` in native safe Rust with total feature parity.
-Now: 2026-02-24 [CODE] Byte parity remains intact after container preallocation + NCZ loop refactors; latest single-file release benchmark on `Arco` shows Rust compression faster than Python (`1.029x`).
-Next: 2026-02-24 [ASSUMPTION] Continue parity-safe compression tuning with one benchmark per iteration; keep only byte-identical changes that improve compression speed.
+Now: 2026-02-24 [CODE] Python compatibility layer compiles with `cargo check --features python` after PyO3 ABI3 configuration and signature fix; high-compression speed comparisons (levels 20 and 22) completed.
+Next: 2026-02-24 [ASSUMPTION] Finalize API parity gaps vs upstream `nsz` internals and prepare release packaging/push.
 Open Questions: 2026-02-24 [UNCONFIRMED] None.
 
 ## Done (recent)
-- 2026-02-24 [CODE] Generalized container encoders to accept borrowed payloads (`encode_pfs0` / `encode_hfs0` now generic over `AsRef<[u8]>`) and updated native compress paths to use `Cow` instead of cloning unchanged entry payloads.
-- 2026-02-24 [CODE] Refactored NCZ compression loops to reuse AES-CTR state per part and stream zstd output directly into final output buffer.
-- 2026-02-24 [CODE] Refactored PFS0/HFS0 encoders to precompute and preallocate full output capacity, avoiding repeated Vec growth during large container assembly.
-- 2026-02-24 [TOOL] Fast heavy NSP compress parity remains byte-identical after NCZ + container assembly refactors.
-- 2026-02-24 [TOOL] Release benchmark on `/home/matteo/Documents/switch_games/Arco [NSP]/Arco [0100E6601ACB6000][v0].nsp` reports compression speedup `1.029x` (Python `60095ms`, Rust `58409ms`).
-- 2026-02-24 [USER] Confirmed policy: ignore run-to-run noise and keep/refactor improvements whenever byte parity is preserved and speed improves.
-- 2026-02-24 [TOOL] Benchmark timing indicates byte-compare overhead is small relative to compression runtime (~`0.46s` of `118.96s` total in latest compress-only run).
+- 2026-02-24 [CODE] Passed extra-hard lint gate (`-D warnings -W clippy::pedantic -W clippy::nursery`) by fixing remaining strict test-lint violations (similar names, conversion safety, pass-by-value, fixture helper signatures).
+- 2026-02-24 [CODE] Completed second docs pass with field-level Rustdoc on public structs and API examples for high-level facade functions.
+- 2026-02-24 [CODE] Enforced strict lint policy (`clippy::all` + `clippy::pedantic` + `clippy::nursery`) with an explicit project allowlist and cleaned test/style violations to keep full-target linting green.
+- 2026-02-24 [CODE] Added Rustdoc comments across public API surfaces and operation entrypoints so method/function behavior is visible in IDE hover and generated docs.
+- 2026-02-24 [CODE] Added Python compatibility scaffolding: `pyo3` feature/config, Rust binding module (`src/python.rs`), package files (`python/nsz/*`), `pyproject.toml`, and `nsz.py`.
+- 2026-02-24 [CODE] Updated `.gitignore` and expanded README for Python/maturin artifacts, coverage/perf positioning, compatibility scope, and pre-push verification steps.
+- 2026-02-24 [CODE] Added `/.agent/` to `.gitignore` per user request.
+- 2026-02-24 [CODE] Fixed PyO3 binding issues reported by user: reordered optional/required `create` signature parameters and enabled ABI3 (`abi3-py38`) for Python 3.14 toolchains.
+- 2026-02-24 [CODE] Added benchmark level override (`NSZ_BENCH_LEVEL`) in `tests/perf_compare_python.rs` for high-level compression comparisons.
+- 2026-02-24 [TOOL] Validation passes: `cargo test -q`, `cargo clippy --all-targets -- -D warnings`, `python3 -m py_compile ...`, and `cargo check --features python`.
+- 2026-02-24 [TOOL] High-level speed comparison (level 20): compress `python=87903ms`, `rust=91994ms` (`0.956x`); decompress `python=4463ms`, `rust=1169ms` (`3.816x`).
+- 2026-02-24 [TOOL] High-level speed comparison (level 22): compress `python=158320ms`, `rust=143885ms` (`1.100x`); decompress `python=4195ms`, `rust=982ms` (`4.270x`).
 
 ## Working set
 - /home/matteo/Documents/prog/rust/nsz-rs/.agent/CONTINUITY.md
 - /home/matteo/Documents/prog/rust/nsz-rs/.agent/execplans/active/EP-2026-02-22__nsz-rs-parity.md
 - /home/matteo/Documents/prog/rust/nsz-rs/src/ops/compress.rs
 - /home/matteo/Documents/prog/rust/nsz-rs/src/ncz/compress.rs
-- /home/matteo/Documents/prog/rust/nsz-rs/src/ncz/decompress.rs
+- /home/matteo/Documents/prog/rust/nsz-rs/src/python.rs
+- /home/matteo/Documents/prog/rust/nsz-rs/python/nsz/__init__.py
+- /home/matteo/Documents/prog/rust/nsz-rs/python/nsz/ParseArguments.py
+- /home/matteo/Documents/prog/rust/nsz-rs/python/nsz/__main__.py
+- /home/matteo/Documents/prog/rust/nsz-rs/pyproject.toml
+- /home/matteo/Documents/prog/rust/nsz-rs/nsz.py
+- /home/matteo/Documents/prog/rust/nsz-rs/README.md
 - /home/matteo/Documents/prog/rust/nsz-rs/tests/perf_compare_python.rs
-- /home/matteo/Documents/prog/rust/nsz-rs/tests/ncz_decompress_meta.rs
-- /home/matteo/Documents/prog/rust/nsz-rs/tests/compress_xci_parity.rs
-- /home/matteo/Documents/prog/rust/nsz-rs/tests/decompress_verify_parity.rs
-- /home/matteo/Documents/prog/rust/nsz-rs/tests/compress_native_nsz_xcz_op.rs
 - /home/matteo/Documents/prog/rust/nsz-rs/.venv-nsz-baseline/bin/python3
-- /home/matteo/Documents/switch_games/Bad Cheese [NSP]
 
 ## Decisions
 - D001 ACTIVE: 2026-02-22 [USER] Target outcome is total feature parity with Python `nsz`; implementation language constraints are native safe Rust.
@@ -52,6 +58,10 @@ Open Questions: 2026-02-24 [UNCONFIRMED] None.
 - D016 ACTIVE: 2026-02-24 [USER] If verification reaches a stable state, create a commit for the completed optimization slice.
 - D017 ACTIVE: 2026-02-24 [USER] Benchmark fixture discovery may recurse through `/home/matteo/Documents/switch_games`, but compression benchmark input must be a single `.nsp` file, not a folder batch.
 - D018 ACTIVE: 2026-02-24 [USER] During optimization, ignore run-to-run noise; keep/refactor only byte-identical changes that show benchmark speed improvement.
+- D019 ACTIVE: 2026-02-24 [USER] Add a Python-facing compatibility layer so this Rust project can act as a drop-in replacement path for Python `nsz` consumers.
+- D020 ACTIVE: 2026-02-24 [USER] For further benchmarking, do not use compression level 22.
+- D021 ACTIVE: 2026-02-24 [USER] Use strict Clippy policy and include `pedantic` + `nursery`, while keeping a documented allowlist for parity/API-required exceptions.
+- D022 ACTIVE: 2026-02-24 [USER] Require additional validation pass for direct CLI-style strict lint command and enrich docs with field-level comments plus examples.
 
 ## Receipts
 - 2026-02-22 [TOOL] Baseline inventory and reference pin completed: Python repo surveyed; baseline fixed to `4.6.1` commit `d84f7c813c3fe278104ff8877803f22028e57452`; corpus root set to `/home/matteo/Documents/switch_games/Bad Cheese [NSP]`.
@@ -112,3 +122,13 @@ Open Questions: 2026-02-24 [UNCONFIRMED] None.
 - 2026-02-24T02:49Z [TOOL] Final release benchmark snapshot: `compress speedup=0.992x`, `decompress speedup=3.668x` on `/home/matteo/Documents/switch_games/Bad Cheese [NSP]/Bad Cheese [0100BAE021208000][v0]`.
 - 2026-02-24T03:37Z [TOOL] Post-refactor fast heavy NSP parity remains byte-identical: `NSZ_RUN_HEAVY_COMPRESS_PARITY=1 NSZ_HEAVY_PARITY_MODE=fast cargo test compress_matches_python_for_fixture -- --nocapture` (duration `89.53s`).
 - 2026-02-24T03:40Z [TOOL] Post-refactor single-file release benchmark (`compress-only`) on `Arco` reports `python_ms=60095`, `rust_ms=58409`, `speedup=1.029x`.
+- 2026-02-24T04:07Z [TOOL] Profiled single-file release benchmark (`NSZ_PROFILE_COMPRESS=1`) output: `[profile][ncz_solid] payload_bytes=704217088 aes_ms=217 write_ms=47420 finish_ms=11867 total_ms=59603`; `[profile][compress_nsp] convert_ms=59603 encode_ms=99 total_ms=59703`; benchmark line `python_ms=58402 rust_ms=59994 speedup=0.973x`.
+- 2026-02-24T04:35Z [CODE] Added Python compatibility layer scaffolding: `pyo3` feature/config (`Cargo.toml`), Rust module (`src/python.rs`), Python package (`python/nsz/*`), packaging metadata (`pyproject.toml`), and compatibility launcher (`nsz.py`).
+- 2026-02-24T04:37Z [TOOL] Validation pass for existing Rust behavior after compatibility-layer changes: `cargo fmt --all && cargo test -q` succeeded.
+- 2026-02-24T04:38Z [TOOL] Python layer syntax check passed via `python3 -m py_compile ...`; `cargo check --features python` is currently blocked by sandbox network DNS (`index.crates.io` unreachable).
+
+- 2026-02-24T04:56Z [TOOL] Final polish verification gates pass: `cargo test -q`, `cargo clippy --all-targets -- -D warnings`, `python3 -m py_compile python/nsz/__init__.py python/nsz/__main__.py python/nsz/ParseArguments.py nsz.py`.
+- 2026-02-24T05:04Z [CODE] Expanded `README.md` with clearer project scope, explicit no-GUI stance, parity target (`4.6.1`), benchmark context, and Rust/Python usage sections; added wording that compression gains are often marginal because `zstd` dominates high-compression runtime.
+- 2026-02-24T04:08Z [TOOL] Doc-comment update validation pass: `cargo fmt --all`, `cargo check --all-targets`, `cargo clippy --all-targets -- -D warnings`.
+- 2026-02-24T04:16Z [TOOL] Strict lint policy validation pass after fixes: `cargo clippy --all-targets --all-features` and `cargo test -q`.
+- 2026-02-24T04:22Z [TOOL] Extra-hard lint + regression pass successful: `cargo clippy --all-targets --all-features -- -D warnings -W clippy::pedantic -W clippy::nursery` and `cargo test -q`.

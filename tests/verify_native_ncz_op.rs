@@ -10,7 +10,7 @@ fn verify_uses_native_path_for_ncz_inputs() {
     let mut nca = vec![0u8; 0x4000];
     nca.extend_from_slice(payload);
     let hash = Sha256::digest(&nca);
-    let stem = format!("{:x}", hash);
+    let stem = format!("{hash:x}");
 
     let mut fixture = vec![0u8; 0x4000];
     fixture.extend_from_slice(b"NCZSECTN");

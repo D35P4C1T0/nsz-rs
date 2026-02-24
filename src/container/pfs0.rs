@@ -18,6 +18,7 @@ pub struct Pfs0Header {
 }
 
 impl Pfs0Header {
+    /// Parses a raw PFS0 header region.
     pub fn from_bytes(data: &[u8]) -> Result<Self, NszError> {
         if data.len() < 16 {
             return Err(NszError::ContainerFormat {
@@ -78,6 +79,7 @@ impl Pfs0Header {
         })
     }
 
+    /// Serializes the header back to its binary form.
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut out = Vec::with_capacity(16 + self.entries.len() * 24 + self.string_table.len());
         out.extend_from_slice(b"PFS0");

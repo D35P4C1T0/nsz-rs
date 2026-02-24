@@ -9,6 +9,7 @@ use crate::error::NszError;
 use crate::ops::OperationReport;
 use crate::parity::python_runner::{resolve_python_repo_root, run_nsz_cli};
 
+/// Decompresses supported inputs natively and falls back to Python `nsz` when needed.
 pub fn run(request: &DecompressRequest) -> Result<OperationReport, NszError> {
     let out_dir = request
         .output_dir

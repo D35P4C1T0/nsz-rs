@@ -6,6 +6,11 @@ edition = "2021"
 [lib]
 name = "nsz_rs"
 path = "src/lib.rs"
+crate-type = ["rlib", "cdylib"]
+
+[features]
+default = []
+python = ["dep:pyo3"]
 
 [dependencies]
 thiserror = "2"
@@ -13,3 +18,23 @@ zstd = { version = "0.13", features = ["zstdmt"] }
 aes = "0.8"
 ctr = "0.9"
 sha2 = "0.10"
+pyo3 = { version = "0.22", features = ["extension-module", "abi3-py38"], optional = true }
+
+[lints.clippy]
+all = { level = "deny", priority = -1 }
+pedantic = { level = "deny", priority = -1 }
+nursery = { level = "deny", priority = -1 }
+cast_possible_truncation = "allow"
+cast_sign_loss = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+must_use_candidate = "allow"
+missing_const_for_fn = "allow"
+too_many_lines = "allow"
+too_many_arguments = "allow"
+struct_excessive_bools = "allow"
+fn_params_excessive_bools = "allow"
+similar_names = "allow"
+implicit_hasher = "allow"
+needless_pass_by_value = "allow"
+useless_conversion = "allow"

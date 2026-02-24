@@ -12,11 +12,13 @@ pub enum WriteDecision {
     DenyDuplicate,
 }
 
+/// Computes the output path for a transformed file inside `target_dir`.
 pub fn target_path_for(source_file: &Path, target_extension: &str, target_dir: &Path) -> PathBuf {
     let file_name = source_file.file_name().unwrap_or_default();
     change_extension(&target_dir.join(file_name), target_extension)
 }
 
+/// Determines whether writing the target output is allowed and applies overwrite policy.
 pub fn allow_write_outfile(
     source_file: &Path,
     target_extension: &str,

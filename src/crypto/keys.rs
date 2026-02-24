@@ -16,6 +16,7 @@ pub struct LoadedKeys {
     pub values: HashMap<String, String>,
 }
 
+/// Parses key-value text and validates the minimum required key set.
 pub fn load_from_str(content: &str) -> Result<LoadedKeys, NszError> {
     let mut values = HashMap::new();
 

@@ -27,7 +27,7 @@ fn decompress_uses_native_path_for_ncz_inputs() {
     fs::create_dir_all(&out_dir).unwrap();
 
     let report = nsz_rs::decompress(&nsz_rs::DecompressRequest {
-        files: vec![input.clone()],
+        files: vec![input],
         output_dir: Some(out_dir.clone()),
         fix_padding: false,
         python_repo_root: Some(PathBuf::from("/does/not/exist")),

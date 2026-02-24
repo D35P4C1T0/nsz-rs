@@ -148,7 +148,8 @@ fn titlekeys_invokes_cli_and_reports_inputs() {
     })
     .expect("titlekeys should succeed");
 
-    assert_eq!(report.processed_files, vec![input.clone()]);
+    assert_eq!(report.processed_files.len(), 1);
+    assert_eq!(report.processed_files[0], input);
 
     let args = fs::read_to_string(repo_root.join("args.txt")).expect("args file");
     assert!(
@@ -186,7 +187,8 @@ fn undupe_invokes_cli_with_options() {
     })
     .expect("undupe should succeed");
 
-    assert_eq!(report.processed_files, vec![input.clone()]);
+    assert_eq!(report.processed_files.len(), 1);
+    assert_eq!(report.processed_files[0], input);
 
     let args = fs::read_to_string(repo_root.join("args.txt")).expect("args file");
     assert!(

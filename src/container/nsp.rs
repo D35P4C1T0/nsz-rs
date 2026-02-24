@@ -2,10 +2,15 @@ use crate::error::NszError;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NspEntry {
+    /// Entry file name.
     pub name: String,
+    /// Entry payload offset relative to the data region.
     pub offset: u64,
+    /// Entry payload byte size.
     pub size: u64,
+    /// String-table offset for `name`.
     pub string_table_offset: u32,
+    /// Reserved PFS0 field.
     pub reserved: u32,
 }
 
@@ -17,6 +22,7 @@ pub struct NspArchive {
 }
 
 impl NspArchive {
+    /// Parses a full PFS0/NSP image from bytes.
     pub fn from_bytes(data: &[u8]) -> Result<Self, NszError> {
         if data.len() < 16 {
             return Err(NszError::ContainerFormat {
@@ -138,14 +144,17 @@ impl NspArchive {
         })
     }
 
+    /// Returns parsed entry metadata in archive order.
     pub fn entries(&self) -> &[NspEntry] {
         &self.entries
     }
 
+    /// Returns the original string table size from the parsed header.
     pub fn string_table_size(&self) -> u32 {
         self.string_table_size
     }
 
+    /// Returns the absolute offset of the first payload byte.
     pub fn first_file_offset(&self) -> u64 {
         self.entries
             .iter()
@@ -154,6 +163,7 @@ impl NspArchive {
             .unwrap_or(self.data_start)
     }
 
+    /// Returns a borrowed payload slice for one archive entry.
     pub fn entry_bytes<'a>(&self, data: &'a [u8], entry: &NspEntry) -> &'a [u8] {
         let start = (self.data_start + entry.offset) as usize;
         let end = start + entry.size as usize;
@@ -161,6 +171,7 @@ impl NspArchive {
     }
 }
 
+/// Encodes entries into a PFS0 container, preserving first-file offset semantics.
 pub fn encode_pfs0<B: AsRef<[u8]>>(
     entries: &[(String, B)],
     first_file_offset: u64,
@@ -221,21 +232,22 @@ pub fn encode_pfs0<B: AsRef<[u8]>>(
     header.extend_from_slice(&string_table);
     header.resize(header_size, 0);
 
-    let first_file_offset = usize::try_from(first_file_offset).map_err(|_| {
-        NszError::ContainerFormat {
+    let first_file_offset =
+        usize::try_from(first_file_offset).map_err(|_| NszError::ContainerFormat {
             message: "PFS0 first file offset does not fit usize".to_string(),
-        }
-    })?;
-    let payload_size = payloads.iter().try_fold(0usize, |acc, payload| {
-        acc.checked_add(payload.len()).ok_or_else(|| NszError::ContainerFormat {
-            message: "PFS0 payload size overflow".to_string(),
-        })
-    })?;
-    let total_size = first_file_offset
-        .checked_add(payload_size)
-        .ok_or_else(|| NszError::ContainerFormat {
-            message: "PFS0 output size overflow".to_string(),
         })?;
+    let payload_size = payloads.iter().try_fold(0usize, |acc, payload| {
+        acc.checked_add(payload.len())
+            .ok_or_else(|| NszError::ContainerFormat {
+                message: "PFS0 payload size overflow".to_string(),
+            })
+    })?;
+    let total_size =
+        first_file_offset
+            .checked_add(payload_size)
+            .ok_or_else(|| NszError::ContainerFormat {
+                message: "PFS0 output size overflow".to_string(),
+            })?;
 
     let mut out = Vec::with_capacity(total_size);
     out.extend_from_slice(&header);

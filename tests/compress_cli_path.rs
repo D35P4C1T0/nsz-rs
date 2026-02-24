@@ -32,7 +32,7 @@ pathlib.Path("invoked.txt").write_text("ok", encoding="utf-8")
 
     let report = nsz_rs::compress(&nsz_rs::CompressRequest {
         files: vec![fallback_input.clone()],
-        output_dir: Some(output_root.clone()),
+        output_dir: Some(output_root),
         python_repo_root: Some(repo_root.clone()),
         ..Default::default()
     })
