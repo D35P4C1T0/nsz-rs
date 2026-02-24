@@ -15,15 +15,12 @@ pub struct NczSection {
 
 pub fn decompressed_nca_size_from_bytes(data: &[u8]) -> Result<u64, NszError> {
     let (sections, _) = parse_sections_with_end(data)?;
-    let mut total = UNCOMPRESSABLE_HEADER_SIZE as u64;
-    for section in sections {
-        total = total
-            .checked_add(section.size)
-            .ok_or_else(|| NszError::ContainerFormat {
-                message: "NCZ decompressed size overflow".to_string(),
-            })?;
-    }
-    Ok(total)
+    let payload_size = payload_size_from_sections(&sections)?;
+    (UNCOMPRESSABLE_HEADER_SIZE as u64)
+        .checked_add(payload_size)
+        .ok_or_else(|| NszError::ContainerFormat {
+            message: "NCZ decompressed size overflow".to_string(),
+        })
 }
 
 pub fn decompress_ncz_to_vec(data: &[u8]) -> Result<Vec<u8>, NszError> {
@@ -37,21 +34,34 @@ pub fn decompress_ncz_to_vec(data: &[u8]) -> Result<Vec<u8>, NszError> {
 
     let decompressed = decode_ncz_stream(data, stream_offset)?;
 
-    let mut output = Vec::with_capacity(decompressed_nca_size_from_bytes(data)? as usize);
+    let payload_size = payload_size_from_sections(&sections)?;
+    let leading_gap = leading_gap_from_sections(&sections)?;
+    let output_capacity_u64 = (UNCOMPRESSABLE_HEADER_SIZE as u64)
+        .checked_add(payload_size)
+        .and_then(|value| value.checked_add(leading_gap))
+        .ok_or_else(|| NszError::ContainerFormat {
+            message: "NCZ decompressed output size overflow".to_string(),
+        })?;
+    let output_capacity =
+        usize::try_from(output_capacity_u64).map_err(|_| NszError::ContainerFormat {
+            message: "NCZ decompressed output size exceeds platform limits".to_string(),
+        })?;
+
+    let mut output = Vec::with_capacity(output_capacity);
     output.extend_from_slice(&data[..UNCOMPRESSABLE_HEADER_SIZE]);
 
     let mut read_cursor = 0usize;
-    if let Some(first) = sections.first() {
-        if first.offset > UNCOMPRESSABLE_HEADER_SIZE as u64 {
-            let gap = (first.offset as usize) - UNCOMPRESSABLE_HEADER_SIZE;
-            if decompressed.len() < gap {
-                return Err(NszError::ContainerFormat {
-                    message: "NCZ stream shorter than leading gap".to_string(),
-                });
-            }
-            output.extend_from_slice(&decompressed[..gap]);
-            read_cursor += gap;
+    if leading_gap > 0 {
+        let gap = usize::try_from(leading_gap).map_err(|_| NszError::ContainerFormat {
+            message: "NCZ leading gap exceeds platform limits".to_string(),
+        })?;
+        if decompressed.len() < gap {
+            return Err(NszError::ContainerFormat {
+                message: "NCZ stream shorter than leading gap".to_string(),
+            });
         }
+        output.extend_from_slice(&decompressed[..gap]);
+        read_cursor += gap;
     }
 
     for section in &sections {
@@ -62,17 +72,16 @@ pub fn decompress_ncz_to_vec(data: &[u8]) -> Result<Vec<u8>, NszError> {
                 message: "NCZ stream shorter than declared sections".to_string(),
             });
         }
-        let mut chunk = decompressed[read_cursor..end].to_vec();
+        let write_start = output.len();
+        output.extend_from_slice(&decompressed[read_cursor..end]);
         if matches!(section.crypto_type, 3 | 4) {
             apply_aes_ctr(
-                &mut chunk,
+                &mut output[write_start..],
                 &section.crypto_key,
                 &section.crypto_counter,
                 section.offset as u128,
             );
         }
-
-        output.extend_from_slice(&chunk);
         read_cursor = end;
     }
 
@@ -127,6 +136,33 @@ fn parse_sections_with_end(data: &[u8]) -> Result<(Vec<NczSection>, usize), NszE
     }
 
     Ok((sections, cursor))
+}
+
+fn payload_size_from_sections(sections: &[NczSection]) -> Result<u64, NszError> {
+    let mut total = 0u64;
+    for section in sections {
+        total = total
+            .checked_add(section.size)
+            .ok_or_else(|| NszError::ContainerFormat {
+                message: "NCZ section payload size overflow".to_string(),
+            })?;
+    }
+    Ok(total)
+}
+
+fn leading_gap_from_sections(sections: &[NczSection]) -> Result<u64, NszError> {
+    let Some(first) = sections.first() else {
+        return Ok(0);
+    };
+    if first.offset <= UNCOMPRESSABLE_HEADER_SIZE as u64 {
+        return Ok(0);
+    }
+    first
+        .offset
+        .checked_sub(UNCOMPRESSABLE_HEADER_SIZE as u64)
+        .ok_or_else(|| NszError::ContainerFormat {
+            message: "NCZ leading gap underflow".to_string(),
+        })
 }
 
 fn decode_ncz_stream(data: &[u8], stream_offset: usize) -> Result<Vec<u8>, NszError> {

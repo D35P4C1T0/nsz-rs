@@ -6,32 +6,32 @@ Add dated entries with provenance tags per AGENTS.md: [USER], [CODE], [TOOL], [A
 ## Snapshot
 
 Goal: 2026-02-22 [USER] Reimplement Python `nsz` in native safe Rust with total feature parity.
-Now: 2026-02-23 [CODE] Native verify covers `.nca`/`.ncz`/`.nsp`/`.nsz`/`.xci`/`.xcz`; native decompress covers `.ncz`/`.nsz`/`.xcz`; staged heavy compress parity now runs on smallest NSP fixture and shows NCZ byte mismatch despite matching output entry set.
-Next: 2026-02-23 [ASSUMPTION] Implement NCA-header-aware native compression selection and NCZ section/crypto parity to close remaining `.nsz/.xcz` byte mismatches, then implement `extract`/`create`/`titlekeys`/`undupe`.
-Open Questions: 2026-02-23 [UNCONFIRMED] Need finalized default policy for heavy parity mode selection (`full` vs `fast`) and whether native `.xci` re-encode header fields should be parity-cloned or normalized.
+Now: 2026-02-24 [CODE] Byte parity remains intact for heavy NSP/XCI compress gates; native NCZ compress/decompress paths now avoid extra per-chunk allocations and benchmark harness reports final release-mode speed snapshot (`compress` ~= `0.992x` Python, `decompress` ~= `3.668x` Python on staged fixture).
+Next: 2026-02-24 [ASSUMPTION] Continue parity-safe speed iterations with release-mode Rust-vs-Python benchmark measurements after each optimization step and periodic `/tmp` cleanup.
+Open Questions: 2026-02-24 [UNCONFIRMED] None.
 
 ## Done (recent)
-- 2026-02-23 [CODE] Added dedicated heavy `compress` parity test (`compress_matches_python_for_fixture`) and refactored compress parity checks out of decompress flow.
-- 2026-02-23 [CODE] Added staged heavy compress fixture strategy: fast mode now selects smallest NSP by file size and logs selected fixture; XCI parity is opt-in via `NSZ_HEAVY_COMPRESS_INCLUDE_XCI=1`.
-- 2026-02-23 [CODE] Updated native compress heuristic: skip tiny NCA conversion (`<= 0x4000`) and only convert largest eligible NCA per container scope.
-- 2026-02-23 [TOOL] Heavy compress parity reproduced first structural mismatch: Python output converted only one NCA entry on sampled NSP while Rust initially converted three.
-- 2026-02-23 [TOOL] After heuristic update, entry sets now match on sampled NSP parity run; byte mismatch remains at offset `48` due differing NCZ payload/size.
-- 2026-02-23 [TOOL] Fast staged compress parity run now completes in ~`92s` on selected NSP fixture (vs prior hangs/timeouts on larger fixtures).
-- 2026-02-23 [TOOL] Validation gates stay green after parity harness + heuristic updates: `cargo fmt --all && cargo test -q && cargo clippy --all-targets --all-features -- -D warnings`.
+- 2026-02-24 [USER] Requested periodic `/tmp` artifact cleanup during heavy testing loops and benchmark sampling after each optimization iteration.
+- 2026-02-24 [CODE] Optimized native NCZ decompress/compress memory paths: removed per-section decrypt clones in `src/ncz/decompress.rs` and removed per-chunk copy for unencrypted compress segments in `src/ncz/compress.rs`.
+- 2026-02-24 [CODE] Added release-mode same-input benchmark harness `tests/perf_compare_python.rs` with Python-vs-Rust timing and byte-equality assertions for `compress` and `decompress`.
+- 2026-02-24 [CODE] Added regression coverage for NCZ leading-gap handling: `ncz_native_decompress_preserves_leading_gap_before_first_section`.
+- 2026-02-24 [CODE] Refined XCI tail-trim policy in `src/ops/compress.rs` to keep native single-partition XCI correctness while preserving multi-partition byte parity with Python.
+- 2026-02-24 [TOOL] Final verification sweep passed: standard gates, heavy XCI parity, and fast heavy NSP compress parity.
+- 2026-02-24 [TOOL] Final release benchmark snapshot captured and recorded in receipts.
 
 ## Working set
 - /home/matteo/Documents/prog/rust/nsz-rs/.agent/CONTINUITY.md
 - /home/matteo/Documents/prog/rust/nsz-rs/.agent/execplans/active/EP-2026-02-22__nsz-rs-parity.md
 - /home/matteo/Documents/prog/rust/nsz-rs/src/ops/compress.rs
 - /home/matteo/Documents/prog/rust/nsz-rs/src/ncz/compress.rs
-- /home/matteo/Documents/prog/rust/nsz-rs/src/ops/decompress.rs
-- /home/matteo/Documents/prog/rust/nsz-rs/src/ops/verify.rs
-- /home/matteo/Documents/prog/rust/nsz-rs/src/container/xci.rs
+- /home/matteo/Documents/prog/rust/nsz-rs/src/ncz/decompress.rs
+- /home/matteo/Documents/prog/rust/nsz-rs/tests/perf_compare_python.rs
+- /home/matteo/Documents/prog/rust/nsz-rs/tests/ncz_decompress_meta.rs
+- /home/matteo/Documents/prog/rust/nsz-rs/tests/compress_xci_parity.rs
 - /home/matteo/Documents/prog/rust/nsz-rs/tests/decompress_verify_parity.rs
-- /home/matteo/Documents/prog/rust/nsz-rs/tests/compress_cli_path.rs
 - /home/matteo/Documents/prog/rust/nsz-rs/tests/compress_native_nsz_xcz_op.rs
+- /home/matteo/Documents/prog/rust/nsz-rs/.venv-nsz-baseline/bin/python3
 - /home/matteo/Documents/switch_games/Bad Cheese [NSP]
-- /home/matteo/Documents/switch_games/xci_test/HEART of CROWN.xci
 
 ## Decisions
 - D001 ACTIVE: 2026-02-22 [USER] Target outcome is total feature parity with Python `nsz`; implementation language constraints are native safe Rust.
@@ -47,6 +47,9 @@ Open Questions: 2026-02-23 [UNCONFIRMED] Need finalized default policy for heavy
 - D011 ACTIVE: 2026-02-22 [USER] Error/API section approved: typed `NszError`, structured results, and explicit parity mismatch reporting.
 - D012 ACTIVE: 2026-02-22 [USER] Testing section approved: layered tests plus Python-vs-Rust byte-parity gates on canonical corpus.
 - D013 ACTIVE: 2026-02-22 [USER] Parity harness default mode is fail-fast.
+- D014 ACTIVE: 2026-02-24 [USER] During testing, periodically clean compressed parity artifacts in `/tmp` to prevent space-related interruptions.
+- D015 ACTIVE: 2026-02-24 [USER] During performance tuning, run same-input benchmarks for both Rust and Python implementations after each optimization iteration.
+- D016 ACTIVE: 2026-02-24 [USER] If verification reaches a stable state, create a commit for the completed optimization slice.
 
 ## Receipts
 - 2026-02-22 [TOOL] Baseline inventory and reference pin completed: Python repo surveyed; baseline fixed to `4.6.1` commit `d84f7c813c3fe278104ff8877803f22028e57452`; corpus root set to `/home/matteo/Documents/switch_games/Bad Cheese [NSP]`.
@@ -88,3 +91,20 @@ Open Questions: 2026-02-23 [UNCONFIRMED] Need finalized default policy for heavy
 - 2026-02-23 [TOOL] Added heavy compress parity harness and split test entrypoint: `compress_matches_python_for_fixture` (gated by `NSZ_RUN_HEAVY_COMPRESS_PARITY=1`).
 - 2026-02-23 [TOOL] Staged fast compress parity mismatch on `/home/matteo/Documents/switch_games/Bad Cheese [NSP]/Bad Cheese [0100BAE021208800][v327680].nsp`: entry names aligned after heuristic fix, but bytes still mismatch (`first_diff_offset=48`, baseline size `128302175`, rust size `159383620`).
 - 2026-02-23 [TOOL] Fast staged compress parity runtime observed around `92s`; pre-staging runs could hang/timeout (>300s) due larger fixture selection and optional XCI work.
+- 2026-02-23 [CODE] Implemented native NCZ compression planner/encoder parity layer (`src/container/nca.rs`, `src/ncz/compress.rs`, `src/ops/compress.rs`) with key/ticket derivation, BKTR section synthesis, and Python-equivalent partition streaming.
+- 2026-02-23 [TOOL] Native compress parity debugging isolated and fixed three blockers: XTS tweak endianness, BKTR crypto type normalization, and `sectionStart` subtraction mismatch versus Python section object behavior.
+- 2026-02-23 [TOOL] Fast heavy compress parity now passes byte-identical for sampled NSP fixture after native planner fixes: `NSZ_RUN_HEAVY_COMPRESS_PARITY=1 NSZ_HEAVY_PARITY_MODE=fast cargo test compress_matches_python_for_fixture -- --nocapture` (escalated), duration `75.29s`.
+- 2026-02-23 [TOOL] Full-mode NSP compress parity passes byte-identical after native planner fixes: `NSZ_RUN_HEAVY_COMPRESS_PARITY=1 NSZ_HEAVY_PARITY_MODE=full cargo test compress_matches_python_for_fixture -- --nocapture` (escalated), duration `262.35s`.
+- 2026-02-23 [TOOL] XCI-inclusive parity blocked by baseline key availability on `/home/matteo/Documents/switch_games/xci_test/HEART of CROWN.xci`: Python `nsz` fails with `master_key_13 missing ... keys.txt`.
+- 2026-02-23 [CODE] Added misc operation parity wrappers and request surfaces (`extract/create/titlekeys/undupe`) plus CLI-path test coverage in `tests/ops_misc_cli_path.rs`; full fmt/test/clippy gate remains green.
+- 2026-02-23 [TOOL] Added XCI-only heavy parity harness (`tests/compress_xci_parity.rs`) and verified pass: `NSZ_RUN_HEAVY_XCI_COMPRESS_PARITY=1 cargo test --test compress_xci_parity -- --nocapture` (duration ~1101s).
+- 2026-02-23 [CODE] Resolved final XCI `+302` mismatch by trimming final trailing alignment bytes in native output (`src/ops/compress.rs`) to mirror Python `4.6.1`.
+- 2026-02-23 [TOOL] Combined heavy fast compress parity pass for NSP+XCI: `NSZ_RUN_HEAVY_COMPRESS_PARITY=1 NSZ_HEAVY_PARITY_MODE=fast NSZ_HEAVY_COMPRESS_INCLUDE_XCI=1 cargo test compress_matches_python_for_fixture -- --nocapture` (duration ~983s).
+- 2026-02-24T01:20Z [TOOL] `/tmp` capacity check healthy: `df -h /tmp` reports `16G` available and `0` active `/tmp/nsz-rs-*` directories.
+- 2026-02-24T01:21Z [TOOL] Ran periodic cleanup pass for test artifacts: `find /tmp -maxdepth 1 -type d -name 'nsz-rs-*' -exec rm -rf {} +`; post-clean check remains `16G` free in `/tmp`.
+- 2026-02-24T02:10Z [TOOL] Iteration benchmark (release mode) after allocation optimizations: `NSZ_RUN_HEAVY_SPEED_BENCH=1 cargo test --release --test perf_compare_python -- --nocapture` reported `compress speedup=0.939x`, `decompress speedup=3.581x`.
+- 2026-02-24T02:13Z [TOOL] Iteration benchmark rerun after NCZ block-path tuning attempt: `compress speedup=0.991x`, `decompress speedup=3.654x`; follow-up validation exposed XCI structural regression so tuning was not kept.
+- 2026-02-24T02:31Z [TOOL] Heavy XCI parity failed after interim trim-rule change with exact `+302` tail delta (`first_diff_offset = baseline_size`), then passed after final trim-rule refinement.
+- 2026-02-24T02:46Z [TOOL] Heavy XCI parity pass restored: `NSZ_RUN_HEAVY_XCI_COMPRESS_PARITY=1 cargo test --test compress_xci_parity -- --nocapture` (duration `894.10s`).
+- 2026-02-24T02:48Z [TOOL] Fast heavy NSP compress parity remained byte-identical: `NSZ_RUN_HEAVY_COMPRESS_PARITY=1 NSZ_HEAVY_PARITY_MODE=fast cargo test compress_matches_python_for_fixture -- --nocapture` (duration `68.59s`).
+- 2026-02-24T02:49Z [TOOL] Final release benchmark snapshot: `compress speedup=0.992x`, `decompress speedup=3.668x` on `/home/matteo/Documents/switch_games/Bad Cheese [NSP]/Bad Cheese [0100BAE021208000][v0]`.

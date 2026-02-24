@@ -83,3 +83,27 @@ fn ncz_native_decompress_unknown_crypto_type_is_passthrough() {
     let decompressed = nsz_rs::ncz::decompress::decompress_ncz_to_vec(&fixture).unwrap();
     assert_eq!(&decompressed[0x4000..], payload);
 }
+
+#[test]
+fn ncz_native_decompress_preserves_leading_gap_before_first_section() {
+    let leading_gap = vec![0xAB; 0x200];
+    let payload = b"native-gap-section-payload";
+    let mut stream = leading_gap.clone();
+    stream.extend_from_slice(payload);
+    let compressed = zstd::stream::encode_all(&stream[..], 1).unwrap();
+
+    let mut fixture = vec![0u8; 0x4000];
+    fixture.extend_from_slice(b"NCZSECTN");
+    fixture.extend_from_slice(&(1u64).to_le_bytes());
+    fixture.extend_from_slice(&(0x4200u64).to_le_bytes());
+    fixture.extend_from_slice(&(payload.len() as u64).to_le_bytes());
+    fixture.extend_from_slice(&(0u64).to_le_bytes());
+    fixture.extend_from_slice(&0u64.to_le_bytes());
+    fixture.extend_from_slice(&[0u8; 16]);
+    fixture.extend_from_slice(&[0u8; 16]);
+    fixture.extend_from_slice(&compressed);
+
+    let decompressed = nsz_rs::ncz::decompress::decompress_ncz_to_vec(&fixture).unwrap();
+    assert_eq!(&decompressed[0x4000..0x4200], &leading_gap);
+    assert_eq!(&decompressed[0x4200..], payload);
+}

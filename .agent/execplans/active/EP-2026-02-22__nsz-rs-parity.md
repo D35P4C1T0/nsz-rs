@@ -7,7 +7,7 @@ This document is maintained under `.agent/PLANS.md` requirements and is the cano
 - Plan ID: EP-2026-02-22__nsz-rs-parity
 - Status: ACTIVE
 - Created: 2026-02-22
-- Last Updated: 2026-02-23
+- Last Updated: 2026-02-24
 - Owner: UNCONFIRMED
 
 ## Purpose / Big Picture
@@ -43,8 +43,12 @@ After this change, the repository will provide a native safe Rust library that r
 - [x] (2026-02-23T16:55Z) Added native `compress` paths for `.nca`/`.nsp`/`.xci` by emitting NCZ payloads and rewriting NSP/XCI containers without Python fallback; fallback retained for unsupported formats.
 - [x] (2026-02-23T18:15Z) Added staged heavy `compress` parity harness (`compress_matches_python_for_fixture`) with fast smallest-fixture selection and detailed mismatch diagnostics.
 - [x] (2026-02-23T18:20Z) Aligned native compress entry-selection behavior with sampled Python fixture by skipping tiny NCAs and only converting largest eligible NCA per container scope.
-- [ ] Replace minimal native `compress` NCZ emission with strict Python 4.6.1 solid/block byte-parity behavior.
-- [ ] Implement remaining operations in parity-first order: `extract`/`create`/`titlekeys`/`undupe`.
+- [x] (2026-02-23T23:45Z) Replaced minimal native NCZ emission with NCA header/ticket/BKTR-aware planner + Python-order plaintext stream compression; fast heavy NSP compress parity now passes byte-identical against Python 4.6.1.
+- [x] (2026-02-23T23:58Z) Extended native `compress` byte-parity receipt to full-mode NSP fixture set; no-timeout heavy parity run passes on discovered NSP corpus entries.
+- [x] (2026-02-24T02:46Z) Closed native XCI/XCZ compress byte-parity delta and restored native single-partition XCI structural correctness via refined trailing-trim policy.
+- [x] (2026-02-24T00:10Z) Implemented parity wrappers for `extract`/`create`/`titlekeys`/`undupe` and removed `NotImplemented` facade behavior for these operations.
+- [x] (2026-02-23T23:50Z) Added corpus-backed parity fixture coverage for `extract`/`create`/`titlekeys`/`undupe` via heavy-gated integration test and isolated Python baseline repos.
+- [x] (2026-02-24T02:49Z) Implemented parity-safe native memory-path speedups (`ncz` compress/decompress allocation reductions) and added release-mode same-input Rust-vs-Python benchmark harness with iteration receipts.
 - [ ] Implement corpus-wide parity harness and docs for adding new samples.
 - [x] (2026-02-23T02:40Z) Ran verification gates for this slice (`cargo fmt --all`, `cargo test -q`, `cargo clippy --all-targets --all-features -- -D warnings`, heavy parity) and resolved regressions.
 - [ ] Update plan sections and archive flow when complete.
@@ -91,6 +95,14 @@ After this change, the repository will provide a native safe Rust library that r
   Evidence: previous `.nsp/.xci` fallback test failed with `PFS0 container too short`; updated fallback test on `.txt` input now passes.
 - Observation: after entry-selection alignment, the sampled NSP parity mismatch persists at byte offset 48 with matching entry names, indicating remaining divergence in generated NCZ payload bytes/size rather than container entry selection.
   Evidence: `compress_matches_python_for_fixture` reports baseline size `128302175` vs Rust size `159383620` with identical entry name lists.
+- Observation: strict NCZ parity required Python-equivalent internals beyond entry selection: XTS tweak endianness, BKTR crypto metadata normalization, and section-origin semantics (`BaseFs` section object uses `sectionStart=0`).
+  Evidence: debug parity runs converged `159383620 -> 128317922 -> 128302175` bytes and final fast fixture pass after these three fixes.
+- Observation: XCI baseline key loading is no longer blocked; native XCI output now reaches near-parity and remaining drift is narrow byte-level mismatch.
+  Evidence: heavy XCI-inclusive run after `prod.keys` provisioning now produces both baseline and Rust XCZ outputs, with latest mismatch `baseline=520272594` vs `rust=520272896` and `first_diff_offset=0x17008`.
+- Observation: release-mode performance measurements are necessary for meaningful Rust-vs-Python comparison; debug-profile runs greatly understate native performance.
+  Evidence: same benchmark moved from debug (`compress 0.298x`, `decompress 0.031x`) to release (`compress 0.992x`, `decompress 3.668x`) on the same fixture.
+- Observation: unconditional XCI tail-trimming can break single-partition native XCI structural correctness even when it helps byte parity on multi-partition fixtures.
+  Evidence: `compress_uses_native_path_for_xci_inputs` failed with `HFS0 entry secure points outside file bounds` until trim policy was constrained; heavy XCI parity still passes after refinement.
 
 ## Decision Log
 
@@ -109,10 +121,16 @@ After this change, the repository will provide a native safe Rust library that r
 - Decision: Parity harness default reporting mode is fail-fast.
   Rationale: User preference for immediate stop on first mismatch to speed triage.
   Date/Author: 2026-02-22 / [USER]
+- Decision: Measure Rust-vs-Python speed after each optimization iteration using identical input fixtures and release-mode Rust builds.
+  Rationale: Prevents false speed conclusions and keeps parity-risk changes evidence-driven.
+  Date/Author: 2026-02-24 / [USER]
+- Decision: Keep XCI trailing trim only where parity requires it without breaking native structural correctness for single-partition fixtures.
+  Rationale: Maintains both strict corpus parity and correctness guarantees expected by native-path tests.
+  Date/Author: 2026-02-24 / [CODE+USER]
 
 ## Outcomes & Retrospective
 
-Current status: Task 9 native replacement now covers `.ncz`/`.nsz`/`.xcz` decompression and `.nca`/`.ncz`/`.nsp`/`.nsz`/`.xci`/`.xcz` verify flows without Python fallback, backed by synthetic native-path tests and expanded corpus parity checks. `compress` now has both fallback and native routes (`.nca`/`.nsp`/`.xci`), and entry-selection on sampled NSP fixture is aligned with Python, but NCZ payload bytes still diverge from Python 4.6.1 output. Remaining work is strict native NCZ generation parity for `compress`, then `extract`/`create`/`titlekeys`/`undupe`, plus corpus-gate policy/documentation.
+Current status: Task 9 native replacement covers `.ncz`/`.nsz`/`.xcz` decompression and `.nca`/`.ncz`/`.nsp`/`.nsz`/`.xci`/`.xcz` verify flows without Python fallback, backed by synthetic native-path tests and expanded corpus parity checks. `compress` has native NCA planner/encoder parity receipts for fast and full NSP modes against Python 4.6.1, and native XCI block-mode work now reaches near-parity with remaining small byte deltas under active investigation. `extract`/`create`/`titlekeys`/`undupe` now have both wrapper implementations and corpus-backed parity fixture coverage. Remaining work is final XCI parity closure and final corpus-gate docs.
 
 ## Context and Orientation
 
@@ -247,3 +265,9 @@ Core dependencies to introduce:
 - (2026-02-23) Extended `compress` with native `.nca` conversion plus native `.nsp/.xci` container rewriting and updated fallback integration tests to exercise unsupported-extension routing.
 - (2026-02-23) Added staged heavy compress parity harness plus smallest-fixture fast mode to avoid long hangs and expose deterministic mismatch diagnostics.
 - (2026-02-23) Updated native compress entry-selection heuristics (skip tiny NCAs + convert largest eligible NCA only) and confirmed remaining mismatch is NCZ payload byte generation.
+- (2026-02-23) Implemented native NCA key/ticket/BKTR-aware compression planner and fixed parity blockers (XTS tweak endianness, BKTR metadata crypto-type normalization, section-origin parity), resulting in byte-identical fast NSP compress parity receipt.
+- (2026-02-23) Extended compress parity receipt to full-mode NSP fixtures; XCI-inclusive parity is currently blocked by missing `master_key_13` in baseline keys; implemented `extract/create/titlekeys/undupe` parity wrappers plus CLI-path tests.
+- (2026-02-23) Unblocked XCI baseline with user-provided `prod.keys`; added native XCI parity fixes (header offsets, `keep=false` partition shaping, root/partition HFS0 addpos policy, NCZBLOCK default path) and reduced mismatch from tens of MB to a small residual delta (`+302` bytes).
+- (2026-02-23) Added heavy-gated corpus misc-op parity suite (`tests/misc_ops_parity.rs`) for `extract`/`create`/`titlekeys`/`undupe` and validated fast-mode pass with local keys/venv baseline.
+- (2026-02-24) Added parity-safe memory allocation reductions in native NCZ compress/decompress and introduced release-mode Rust-vs-Python benchmark harness (`tests/perf_compare_python.rs`) with per-iteration receipts.
+- (2026-02-24) Resolved XCI trim-policy conflict by preserving native single-partition structural correctness while retaining multi-partition byte parity (`compress_xci_parity` heavy gate passed).

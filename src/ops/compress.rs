@@ -1,13 +1,18 @@
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::config::CompressRequest;
 use crate::container::hfs0::{encode_hfs0, Hfs0Archive};
+use crate::container::nca::{NcaKeySet, TicketRecord};
 use crate::container::nsp::{encode_pfs0, NspArchive};
 use crate::container::xci::{encode_xci_like, XciArchive};
 use crate::error::NszError;
 use crate::ops::OperationReport;
 use crate::parity::python_runner::{resolve_python_repo_root, run_nsz_cli};
+
+const UNCOMPRESSABLE_HEADER_SIZE: usize = 0x4000;
+const XCI_HFS0_FIRST_FILE_OFFSET: u64 = 0x8000;
 
 pub fn run(request: &CompressRequest) -> Result<OperationReport, NszError> {
     if request.files.is_empty() {
@@ -20,12 +25,14 @@ pub fn run(request: &CompressRequest) -> Result<OperationReport, NszError> {
 
     let mut processed_files = Vec::new();
     let mut fallback_files = Vec::new();
+    let keyset = resolve_keyset();
+    let solid_threads = effective_solid_threads(request.threads);
 
     for file in &request.files {
         match normalized_extension(file) {
             Some("nsp") => {
                 let input = fs::read(file)?;
-                let output = compress_nsp_to_nsz(&input, request.level)?;
+                let output = compress_nsp_to_nsz(&input, request, keyset.as_ref(), solid_threads)?;
                 let out_file = expected_compressed_output(file, request.output_dir.as_deref())
                     .ok_or_else(|| NszError::ContainerFormat {
                         message: format!("could not resolve output path for {}", file.display()),
@@ -36,7 +43,7 @@ pub fn run(request: &CompressRequest) -> Result<OperationReport, NszError> {
             }
             Some("xci") => {
                 let input = fs::read(file)?;
-                let output = compress_xci_to_xcz(&input, request.level)?;
+                let output = compress_xci_to_xcz(&input, request, keyset.as_ref(), solid_threads)?;
                 let out_file = expected_compressed_output(file, request.output_dir.as_deref())
                     .ok_or_else(|| NszError::ContainerFormat {
                         message: format!("could not resolve output path for {}", file.display()),
@@ -47,7 +54,17 @@ pub fn run(request: &CompressRequest) -> Result<OperationReport, NszError> {
             }
             Some("nca") => {
                 let input = fs::read(file)?;
-                let output = crate::ncz::compress::compress_nca_to_ncz_vec(&input, request.level)?;
+                let empty_tickets = HashMap::new();
+                let plan = keyset.as_ref().and_then(|keys| {
+                    crate::container::nca::build_compression_plan(&input, keys, &empty_tickets).ok()
+                });
+                let output = crate::ncz::compress::compress_nca_to_ncz_vec_with_plan(
+                    &input,
+                    request.level,
+                    request.long_distance_mode,
+                    solid_threads,
+                    plan.as_ref(),
+                )?;
                 let out_file = expected_compressed_output(file, request.output_dir.as_deref())
                     .ok_or_else(|| NszError::ContainerFormat {
                         message: format!("could not resolve output path for {}", file.display()),
@@ -88,8 +105,14 @@ pub fn run(request: &CompressRequest) -> Result<OperationReport, NszError> {
     })
 }
 
-fn compress_nsp_to_nsz(data: &[u8], level: i32) -> Result<Vec<u8>, NszError> {
+fn compress_nsp_to_nsz(
+    data: &[u8],
+    request: &CompressRequest,
+    keyset: Option<&NcaKeySet>,
+    solid_threads: i32,
+) -> Result<Vec<u8>, NszError> {
     let archive = NspArchive::from_bytes(data)?;
+    let tickets = collect_nsp_tickets(&archive, data);
     let largest_convertible_nca = archive
         .entries()
         .iter()
@@ -104,11 +127,13 @@ fn compress_nsp_to_nsz(data: &[u8], level: i32) -> Result<Vec<u8>, NszError> {
 
     for entry in archive.entries() {
         let entry_bytes = archive.entry_bytes(data, entry);
-        if entry.name.to_ascii_lowercase().ends_with(".nca")
-            && !entry.name.to_ascii_lowercase().ends_with(".cnmt.nca")
-            && entry_bytes.len() > UNCOMPRESSABLE_HEADER_SIZE
-            && Some(entry.size) == largest_convertible_nca
-        {
+        if should_convert_nca_entry(
+            &entry.name,
+            entry_bytes,
+            entry.size,
+            largest_convertible_nca,
+            keyset.as_ref().map(|keys| &keys.header_key),
+        ) {
             let mut new_name = PathBuf::from(&entry.name);
             new_name.set_extension("ncz");
             let name = new_name
@@ -117,7 +142,24 @@ fn compress_nsp_to_nsz(data: &[u8], level: i32) -> Result<Vec<u8>, NszError> {
                     message: format!("invalid UTF-8 output name for {}", entry.name),
                 })?
                 .to_string();
-            let output = crate::ncz::compress::compress_nca_to_ncz_vec(entry_bytes, level)?;
+            let plan =
+                keyset.and_then(|keys| {
+                    match crate::container::nca::build_compression_plan(entry_bytes, keys, &tickets)
+                    {
+                        Ok(plan) => Some(plan),
+                        Err(err) => {
+                            debug_plan_failure(&entry.name, &err);
+                            None
+                        }
+                    }
+                });
+            let output = crate::ncz::compress::compress_nca_to_ncz_vec_with_plan(
+                entry_bytes,
+                request.level,
+                request.long_distance_mode,
+                solid_threads,
+                plan.as_ref(),
+            )?;
             output_entries.push((name, output));
         } else {
             output_entries.push((entry.name.clone(), entry_bytes.to_vec()));
@@ -131,15 +173,41 @@ fn compress_nsp_to_nsz(data: &[u8], level: i32) -> Result<Vec<u8>, NszError> {
     )
 }
 
-fn compress_xci_to_xcz(data: &[u8], level: i32) -> Result<Vec<u8>, NszError> {
+fn compress_xci_to_xcz(
+    data: &[u8],
+    request: &CompressRequest,
+    keyset: Option<&NcaKeySet>,
+    solid_threads: i32,
+) -> Result<Vec<u8>, NszError> {
+    let use_block_ncz = request.block || !request.solid;
     let xci = XciArchive::from_bytes(data)?;
     let root_bytes = xci.root_hfs0_bytes(data)?;
     let root = xci.root_hfs0_archive(data)?;
 
     let mut root_output_entries = Vec::with_capacity(root.entries().len());
-    for partition in root.entries() {
+    let mut trailing_padding_to_trim = 0usize;
+    for (index, partition) in root.entries().iter().enumerate() {
+        let is_last_partition = index + 1 == root.entries().len();
+        let partition_name = partition.name.to_ascii_lowercase();
+        if !request.keep && partition_name != "secure" {
+            let empty_partition = encode_hfs0(&[], 0x11, 1)?;
+            let aligned_empty_partition = align_xci_partition_size(empty_partition);
+            if is_last_partition && root.entries().len() > 1 {
+                trailing_padding_to_trim = aligned_empty_partition.len().saturating_sub(0x11);
+            }
+            root_output_entries.push((partition.name.clone(), aligned_empty_partition));
+            continue;
+        }
+
         let partition_bytes = root.entry_bytes(root_bytes, partition);
-        let partition_archive = Hfs0Archive::from_bytes(partition_bytes)?;
+        let partition_archive =
+            Hfs0Archive::from_bytes(partition_bytes).map_err(|err| NszError::ContainerFormat {
+                message: format!(
+                    "failed to parse XCI partition '{}' as HFS0: {err}",
+                    partition.name
+                ),
+            })?;
+        let partition_tickets = collect_hfs0_tickets(&partition_archive, partition_bytes);
         let largest_convertible_nca = partition_archive
             .entries()
             .iter()
@@ -154,11 +222,13 @@ fn compress_xci_to_xcz(data: &[u8], level: i32) -> Result<Vec<u8>, NszError> {
         let mut partition_output_entries = Vec::with_capacity(partition_archive.entries().len());
         for entry in partition_archive.entries() {
             let entry_bytes = partition_archive.entry_bytes(partition_bytes, entry);
-            if entry.name.to_ascii_lowercase().ends_with(".nca")
-                && !entry.name.to_ascii_lowercase().ends_with(".cnmt.nca")
-                && entry_bytes.len() > UNCOMPRESSABLE_HEADER_SIZE
-                && Some(entry.size) == largest_convertible_nca
-            {
+            if should_convert_nca_entry(
+                &entry.name,
+                entry_bytes,
+                entry.size,
+                largest_convertible_nca,
+                keyset.as_ref().map(|keys| &keys.header_key),
+            ) {
                 let mut new_name = PathBuf::from(&entry.name);
                 new_name.set_extension("ncz");
                 let name = new_name
@@ -167,27 +237,170 @@ fn compress_xci_to_xcz(data: &[u8], level: i32) -> Result<Vec<u8>, NszError> {
                         message: format!("invalid UTF-8 output name for {}", entry.name),
                     })?
                     .to_string();
-                let output = crate::ncz::compress::compress_nca_to_ncz_vec(entry_bytes, level)?;
+                let plan = keyset.and_then(|keys| {
+                    crate::container::nca::build_compression_plan(
+                        entry_bytes,
+                        keys,
+                        &partition_tickets,
+                    )
+                    .inspect_err(|err| {
+                        debug_plan_failure(&entry.name, err);
+                    })
+                    .ok()
+                });
+                let output = if use_block_ncz {
+                    crate::ncz::compress::compress_nca_to_ncz_block_vec_with_plan(
+                        entry_bytes,
+                        request.level,
+                        request.long_distance_mode,
+                        request.block_size_exponent,
+                        plan.as_ref(),
+                    )?
+                } else {
+                    crate::ncz::compress::compress_nca_to_ncz_vec_with_plan(
+                        entry_bytes,
+                        request.level,
+                        request.long_distance_mode,
+                        solid_threads,
+                        plan.as_ref(),
+                    )?
+                };
                 partition_output_entries.push((name, output));
             } else {
                 partition_output_entries.push((entry.name.clone(), entry_bytes.to_vec()));
             }
         }
 
-        let partition_output = encode_hfs0(
-            &partition_output_entries,
-            partition_archive.first_file_offset(),
-            partition_archive.string_table_size(),
-        )?;
-        root_output_entries.push((partition.name.clone(), partition_output));
+        let partition_output =
+            encode_hfs0(&partition_output_entries, XCI_HFS0_FIRST_FILE_OFFSET, 0)?;
+        let aligned_partition_output = align_xci_partition_size(partition_output.clone());
+        if is_last_partition && root.entries().len() > 1 {
+            trailing_padding_to_trim = aligned_partition_output.len() - partition_output.len();
+        }
+        root_output_entries.push((partition.name.clone(), aligned_partition_output));
     }
 
-    let root_output = encode_hfs0(
-        &root_output_entries,
-        root.first_file_offset(),
-        root.string_table_size(),
-    )?;
-    encode_xci_like(data, &xci, &root_output)
+    let root_output = encode_hfs0(&root_output_entries, XCI_HFS0_FIRST_FILE_OFFSET, 0)?;
+    let mut output = encode_xci_like(data, &xci, &root_output)?;
+    if trailing_padding_to_trim > 0 && output.len() > trailing_padding_to_trim {
+        let trim_start = output.len() - trailing_padding_to_trim;
+        if output[trim_start..].iter().all(|byte| *byte == 0) {
+            output.truncate(trim_start);
+        }
+    }
+    Ok(output)
+}
+
+fn align_xci_partition_size(mut bytes: Vec<u8>) -> Vec<u8> {
+    let padding = 0x200 - (bytes.len() % 0x200);
+    bytes.resize(bytes.len() + padding, 0);
+    bytes
+}
+
+fn collect_nsp_tickets(archive: &NspArchive, data: &[u8]) -> HashMap<[u8; 16], TicketRecord> {
+    let mut out = HashMap::new();
+    for entry in archive.entries() {
+        if !entry.name.to_ascii_lowercase().ends_with(".tik") {
+            continue;
+        }
+        let bytes = archive.entry_bytes(data, entry);
+        if let Ok(ticket) = crate::container::nca::parse_ticket_record(bytes) {
+            out.insert(ticket.rights_id, ticket);
+        }
+    }
+    out
+}
+
+fn collect_hfs0_tickets(archive: &Hfs0Archive, data: &[u8]) -> HashMap<[u8; 16], TicketRecord> {
+    let mut out = HashMap::new();
+    for entry in archive.entries() {
+        if !entry.name.to_ascii_lowercase().ends_with(".tik") {
+            continue;
+        }
+        let bytes = archive.entry_bytes(data, entry);
+        if let Ok(ticket) = crate::container::nca::parse_ticket_record(bytes) {
+            out.insert(ticket.rights_id, ticket);
+        }
+    }
+    out
+}
+
+fn should_convert_nca_entry(
+    name: &str,
+    bytes: &[u8],
+    size: u64,
+    fallback_largest_size: Option<u64>,
+    header_key: Option<&[u8; 32]>,
+) -> bool {
+    let name_lower = name.to_ascii_lowercase();
+    if !name_lower.ends_with(".nca") || name_lower.ends_with(".cnmt.nca") {
+        return false;
+    }
+    if bytes.len() <= UNCOMPRESSABLE_HEADER_SIZE {
+        return false;
+    }
+
+    if let Some(key) = header_key {
+        match crate::container::nca::analyze_for_compression(bytes, key) {
+            Ok(meta) => return meta.is_compressible(),
+            Err(err) => {
+                if std::env::var("NSZ_DEBUG_COMPRESS_PLAN").ok().as_deref() == Some("1") {
+                    eprintln!("[compress-plan] analyze failed for {name}: {err}");
+                }
+            }
+        }
+    }
+
+    Some(size) == fallback_largest_size
+}
+
+fn effective_solid_threads(request_threads: i32) -> i32 {
+    if request_threads > 0 {
+        request_threads
+    } else {
+        3
+    }
+}
+
+fn debug_plan_failure(entry_name: &str, error: &NszError) {
+    if std::env::var("NSZ_DEBUG_COMPRESS_PLAN").ok().as_deref() == Some("1") {
+        eprintln!("[compress-plan] failed for {entry_name}: {error}");
+    }
+}
+
+fn resolve_keyset() -> Option<NcaKeySet> {
+    for candidate in candidate_key_paths() {
+        let Ok(content) = fs::read_to_string(&candidate) else {
+            continue;
+        };
+        if let Ok(keyset) = NcaKeySet::from_keys_str(&content) {
+            return Some(keyset);
+        }
+    }
+    None
+}
+
+fn candidate_key_paths() -> Vec<PathBuf> {
+    let mut out = Vec::new();
+    if let Ok(path) = std::env::var("NSZ_KEYS_FILE") {
+        out.push(PathBuf::from(path));
+    }
+    out.push(PathBuf::from("prod.keys"));
+    out.push(PathBuf::from("keys.txt"));
+    out.push(PathBuf::from(
+        "/home/matteo/Documents/prog/python/nsz/prod.keys",
+    ));
+    out.push(PathBuf::from(
+        "/home/matteo/Documents/prog/python/nsz/keys.txt",
+    ));
+
+    if let Ok(home) = std::env::var("HOME") {
+        let home_dir = PathBuf::from(home);
+        out.push(home_dir.join(".switch").join("prod.keys"));
+        out.push(home_dir.join(".switch").join("keys.txt"));
+    }
+
+    out
 }
 
 fn build_python_compress_args(request: &CompressRequest) -> Vec<String> {
@@ -273,4 +486,3 @@ fn expected_compressed_output(input: &Path, output_dir: Option<&Path>) -> Option
 
     Some(input.parent()?.join(output_name))
 }
-const UNCOMPRESSABLE_HEADER_SIZE: usize = 0x4000;
